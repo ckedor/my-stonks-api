@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
 
     CORS_ORIGINS: list[str] = [
-        'https://my-stonks-front.onrender.com',
+        'https://moneys-front.onrender.com',
         'http://localhost:5173',
         'http://localhost:3000',
     ]
