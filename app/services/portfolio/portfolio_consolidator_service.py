@@ -25,16 +25,16 @@ from app.services import market_data as market_data_service
 
 async def consolidate_position_portfolio(session, portfolio_id):
     logger.info(f'Consolidando posições do portfolio {portfolio_id}')
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        positions_df = await repo.get(
-            Position,
-            by={
-                'portfolio_id': portfolio_id,
-            },
-            order_by='date desc',
-            as_df=True,
-        )
+    
+    repo = PortfolioRepository(session)
+    positions_df = await repo.get(
+        Position,
+        by={
+            'portfolio_id': portfolio_id,
+        },
+        order_by='date desc',
+        as_df=True,
+    )
     if positions_df.empty:
         await recalculate_all_positions_portfolio(session, portfolio_id)
         return
@@ -46,40 +46,40 @@ async def consolidate_position_portfolio(session, portfolio_id):
 
 async def recalculate_position_asset(session, portfolio_id, asset_id):
     try:
-        async with session.begin():
-            repo = PortfolioRepository(session)
-            asset = await repo.get(Asset, asset_id, first=True, relations=["treasury_bond", "fixed_income"]) #TODO: eu preciso fazer o select in load do trasury_bond. Mas aqui não faz mt sentido. Repensar.
-            transactions_df = await get_transactions(session, portfolio_id, asset_id)
-            if transactions_df.empty:
-                
-                await repo.delete(
-                    Position,
-                    by={'asset_id': asset_id, 'portfolio_id': portfolio_id},
-                )
-                return
-            events = await repo.get(Event, order_by='date asc', by={'asset_id': asset.id})
-            if len(events) > 0:
-                for event in events:
-                    mask = transactions_df['date'] < pd.to_datetime(event.date)
-                    transactions_df.loc[mask, 'quantity'] *= event.factor
+        
+        repo = PortfolioRepository(session)
+        asset = await repo.get(Asset, asset_id, first=True, relations=["treasury_bond", "fixed_income"]) #TODO: eu preciso fazer o select in load do trasury_bond. Mas aqui não faz mt sentido. Repensar.
+        transactions_df = await get_transactions(session, portfolio_id, asset_id)
+        if transactions_df.empty:
+            
+            await repo.delete(
+                Position,
+                by={'asset_id': asset_id, 'portfolio_id': portfolio_id},
+            )
+            return
+        events = await repo.get(Event, order_by='date asc', by={'asset_id': asset.id})
+        if len(events) > 0:
+            for event in events:
+                mask = transactions_df['date'] < pd.to_datetime(event.date)
+                transactions_df.loc[mask, 'quantity'] *= event.factor
 
-            prices_df = await get_prices(session, transactions_df, asset, portfolio_id)
-            
-            start_date = transactions_df['date'].min()
-            end_date = prices_df['date'].max()
-            full_dates = pd.DataFrame({'date': pd.date_range(start=start_date, end=end_date)})
-            position_df = full_dates.merge(prices_df, on='date', how='left')
-            position_df = position_df.merge(transactions_df, on='date', how='left')
-            
-            for col in ['price', 'price_usd', 'average_price', 'average_price_usd']:
-                if col in position_df.columns:
-                    position_df[col] = position_df[col].ffill()
-            position_df['quantity'] = position_df['quantity'].fillna(0).cumsum().round(6)
-            
-            _calculate_returns(position_df)
-            
-            await _persist_positions_db(session, position_df, transactions_df['date'].min(), asset, portfolio_id)
-            logger.info(f'Sucesso ao consolidar ativo: {asset.ticker}')
+        prices_df = await get_prices(session, transactions_df, asset, portfolio_id)
+        
+        start_date = transactions_df['date'].min()
+        end_date = prices_df['date'].max()
+        full_dates = pd.DataFrame({'date': pd.date_range(start=start_date, end=end_date)})
+        position_df = full_dates.merge(prices_df, on='date', how='left')
+        position_df = position_df.merge(transactions_df, on='date', how='left')
+        
+        for col in ['price', 'price_usd', 'average_price', 'average_price_usd']:
+            if col in position_df.columns:
+                position_df[col] = position_df[col].ffill()
+        position_df['quantity'] = position_df['quantity'].fillna(0).cumsum().round(6)
+        
+        _calculate_returns(position_df)
+        
+        await _persist_positions_db(session, position_df, transactions_df['date'].min(), asset, portfolio_id)
+        logger.info(f'Sucesso ao consolidar ativo: {asset.ticker}')
     except Exception as e:
         logger.error(f'Falha ao calcular posições para {asset.ticker}: {e}')
 
@@ -187,19 +187,19 @@ async def _persist_positions_db(
     )
 
     await repo.upsert_bulk(Position, values, unique_columns=['portfolio_id', 'asset_id', 'date'])
+    await session.commit()
 
 async def recalculate_all_positions_portfolio(session, portfolio_id):
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        transactions_df = await repo.get(
-            Transaction, by={'portfolio_id': portfolio_id}, as_df=True
-        )
+    repo = PortfolioRepository(session)
+    transactions_df = await repo.get(
+        Transaction, by={'portfolio_id': portfolio_id}, as_df=True
+    )
 
-        if transactions_df.empty:
-            raise HTTPException(
-                status_code=404,
-                detail=f'Transactions not found for portfolio {portfolio_id}',
-            )
+    if transactions_df.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=f'Transactions not found for portfolio {portfolio_id}',
+        )
 
     asset_ids = transactions_df['asset_id'].unique().tolist()
     for asset_id in asset_ids:
@@ -304,15 +304,17 @@ async def consolidate_fii_dividends(session, portfolio_id: int):
     if new_dividends_df.empty:
         logger.info(f'Nenhum novo dividendo de FIIs encontrado para o portfolio {portfolio_id}')
         return
-    async with session.begin():
-        for _, row in new_dividends_df.iterrows():
-            await repo.create(
-                Dividend,
-                {
-                    'portfolio_id': portfolio_id,
-                    'asset_id': row['asset_id'],
-                    'date': row['date'],
-                    'amount': row['dividend']
-                }
-            )
-            logger.info(f"Dividendos de {row['ticker']} na data {row['date']} consolidados com sucesso")
+    
+    for _, row in new_dividends_df.iterrows():
+        await repo.create(
+            Dividend,
+            {
+                'portfolio_id': portfolio_id,
+                'asset_id': row['asset_id'],
+                'date': row['date'],
+                'amount': row['dividend']
+            }
+        )
+    await session.commit()
+    logger.info(f"Dividendos de {row['ticker']} na data {row['date']} consolidados com sucesso")
+

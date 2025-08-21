@@ -40,22 +40,22 @@ async def list_user_portfolios(session, user_id: int) -> Portfolio:
     return portfolios
 
 async def update_portfolio(session, portfolio: UpdatePortfolioRequest) -> None:    
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        portfolio = await repo.get(Portfolio, portfolio.id)
-        if not portfolio:
-            raise HTTPException(status_code=404, detail='Portfolio não encontrado')
+    repo = PortfolioRepository(session)
+    portfolio = await repo.get(Portfolio, portfolio.id)
+    if not portfolio:
+        raise HTTPException(status_code=404, detail='Portfolio não encontrado')
 
-        await repo.update(
-            Portfolio,
-            portfolio.model_dump(exclude={'user_categories'}),
-        )
+    await repo.update(
+        Portfolio,
+        portfolio.model_dump(exclude={'user_categories'}),
+    )
 
-        for cat in portfolio.user_categories:
-            if cat.id is None:
-                await repo.create(CustomCategory, cat.model_dump())
-            else:
-                await repo.update(CustomCategory, cat.model_dump())
+    for cat in portfolio.user_categories:
+        if cat.id is None:
+            await repo.create(CustomCategory, cat.model_dump())
+        else:
+            await repo.update(CustomCategory, cat.model_dump())
+    await session.commit()
 
 async def delete_portfolio(session, portfolio_id: int) -> None:
     async with session.begin():

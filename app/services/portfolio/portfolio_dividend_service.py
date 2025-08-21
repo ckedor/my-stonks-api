@@ -1,4 +1,5 @@
 import pandas as pd
+from requests import session
 
 from app.api.portfolio.dividend.schema import DividendFilters
 from app.infrastructure.db.models.portfolio import Dividend
@@ -17,28 +18,31 @@ async def get_dividends(
     return dividends
 
 async def create_dividend(session, dividend_data):
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        dividend = await repo.create(Dividend, dividend_data.dict())
-        return dividend
+    
+    repo = PortfolioRepository(session)
+    dividend = await repo.create(Dividend, dividend_data.dict())
+    await session.commit()
+    return dividend
 
 async def update_dividend(session, dividend_data):
     repo = PortfolioRepository(session)
-    async with session.begin():
-        existing_dividend = await repo.get(Dividend, dividend_data.id)
-        if not existing_dividend:
-            return None
-
-        update_data = dividend_data.dict(exclude_unset=True)
-        updated_dividend = await repo.update(Dividend, update_data)
     
+    existing_dividend = await repo.get(Dividend, dividend_data.id)
+    if not existing_dividend:
+        return None
+
+    update_data = dividend_data.dict(exclude_unset=True)
+    updated_dividend = await repo.update(Dividend, update_data)
+    
+    await session.commit()
     return updated_dividend
 
 async def delete_dividend(session, dividend_id: int):
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        existing_dividend = await repo.get(Dividend, dividend_id)
-        if not existing_dividend:
-            return None
+    repo = PortfolioRepository(session)
+    existing_dividend = await repo.get(Dividend, dividend_id)
+    if not existing_dividend:
+        return None
 
-        return await repo.delete(Dividend, dividend_id)
+    deleted = await repo.delete(Dividend, dividend_id)
+    await session.commit()
+    return deleted

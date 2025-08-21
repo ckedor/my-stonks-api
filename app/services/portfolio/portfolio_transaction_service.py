@@ -11,10 +11,11 @@ from app.worker.tasks.recalculate_asset_position import recalculate_position_ass
 
 
 async def create_transaction(session, transaction: dict) -> None:
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        transaction['date'] = pd.to_datetime(transaction['date']).date()
-        await repo.create(Transaction, transaction)
+   
+    repo = PortfolioRepository(session)
+    transaction['date'] = pd.to_datetime(transaction['date']).date()
+    await repo.create(Transaction, transaction)
+    await session.commit()
 
 async def get_transactions(session, portfolio_id: int, asset_id: int = None, asset_types_ids: List[int] = None, currency_id: int = None) -> pd.DataFrame:
     repo = PortfolioRepository(session)
@@ -38,24 +39,23 @@ async def get_transactions(session, portfolio_id: int, asset_id: int = None, ass
     return df_response(transactions_df)
 
 async def update_transaction(session, transaction: dict) -> None:
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        old_portfolio = await repo.get(Transaction, transaction.get('id'), first=True)
-        old_portfolio_id = old_portfolio.portfolio_id
-    
-        transaction['date'] = pd.to_datetime(transaction['date']).date()
-        repo = PortfolioRepository(session)
-        await repo.update(Transaction, transaction)
+    repo = PortfolioRepository(session)
+    old_portfolio = await repo.get(Transaction, transaction.get('id'), first=True)
+    old_portfolio_id = old_portfolio.portfolio_id
+
+    transaction['date'] = pd.to_datetime(transaction['date']).date()
+    repo = PortfolioRepository(session)
+    await repo.update(Transaction, transaction)
+    await session.commit()
         
     run_task(recalculate_position_asset, transaction['portfolio_id'], transaction['asset_id'])
     if transaction['portfolio_id'] != old_portfolio_id:
         run_task(recalculate_position_asset, old_portfolio_id, transaction['asset_id'])
 
 async def delete_transaction(session, transaction_id) -> None:
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        await repo.delete(Transaction, id=transaction_id)
-    
+    repo = PortfolioRepository(session)
+    await repo.delete(Transaction, id=transaction_id)
+    await session.commit()
     
 def _calculate_profits(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(by=['asset_id', 'date']).copy()
