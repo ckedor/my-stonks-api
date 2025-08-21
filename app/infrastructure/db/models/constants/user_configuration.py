@@ -1,0 +1,6 @@
+from enum import IntEnum
+
+
+class USER_CONFIGURATION(IntEnum):
+    FOXBIT_INTEGRATION = 1
+    FIIS_DIVIDENDS_INTEGRATION = 2

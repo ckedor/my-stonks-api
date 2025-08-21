@@ -1,0 +1,20 @@
+services:
+  - name: my-stonks-api
+    type: web
+    runtime: python
+    buildCommand: |
+      curl -sSL https://install.python-poetry.org | python3
+      export PATH="$HOME/.local/bin:$PATH"
+      poetry install --no-interaction --no-root
+    startCommand: sh start_web.sh
+    plan: free
+    
+  - name: my-stonks-worker
+    type: worker
+    runtime: python
+    buildCommand: |
+      curl -sSL https://install.python-poetry.org | python3
+      export PATH="$HOME/.local/bin:$PATH"
+      poetry install --no-interaction --no-root
+    startCommand: sh start_worker.sh
+    plan: starter

@@ -1,0 +1,55 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.env/
+.venv/
+venv/
+ENV/
+env/
+
+# dotenv
+.env
+.env.*
+
+# VS Code / IDEs
+.vscode/
+.idea/
+
+# Migrations, alembic cache
+*.log
+
+# Test / coverage
+htmlcov/
+.tox/
+.coverage
+coverage.xml
+*.cover
+.cache
+.pytest_cache/
+
+# DB local
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# pyright
+typings/
+
+
+restart.py
+insert_assets.sql
+insert_transactions.sql
+
+restore_db.py
+prod_dump.sql
+
+celerybeat-schedule.bak
+celerybeat-schedule.dir
+celerybeat-schedule.dat
+
+rascunhos
