@@ -58,19 +58,19 @@ async def update_portfolio(session, portfolio: UpdatePortfolioRequest) -> None:
     await session.commit()
 
 async def delete_portfolio(session, portfolio_id: int) -> None:
-    async with session.begin():
-        repo = PortfolioRepository(session)
-        portfolio = await repo.get(Portfolio, portfolio_id)
-        if not portfolio:
-            raise HTTPException(status_code=404, detail='Portfolio não encontrado')
+    repo = PortfolioRepository(session)
+    portfolio = await repo.get(Portfolio, portfolio_id)
+    if not portfolio:
+        raise HTTPException(status_code=404, detail='Portfolio não encontrado')
 
-        custom_categories = await repo.get(
-            CustomCategory, by={'portfolio_id': portfolio_id}
-        )   
-        for custom_category in custom_categories:
-            await repo.delete(CustomCategoryAssignment, by={'custom_category_id': custom_category.id})
-        await repo.delete(CustomCategory, by={'portfolio_id': portfolio_id})
-        await repo.delete(Position, by={'portfolio_id': portfolio_id})
-        await repo.delete(Transaction, by={'portfolio_id': portfolio_id})
-        await repo.delete(Dividend, by={'portfolio_id': portfolio_id})
-        await repo.delete(Portfolio, portfolio_id)
+    custom_categories = await repo.get(
+        CustomCategory, by={'portfolio_id': portfolio_id}
+    )   
+    for custom_category in custom_categories:
+        await repo.delete(CustomCategoryAssignment, by={'custom_category_id': custom_category.id})
+    await repo.delete(CustomCategory, by={'portfolio_id': portfolio_id})
+    await repo.delete(Position, by={'portfolio_id': portfolio_id})
+    await repo.delete(Transaction, by={'portfolio_id': portfolio_id})
+    await repo.delete(Dividend, by={'portfolio_id': portfolio_id})
+    await repo.delete(Portfolio, portfolio_id)
+    await session.commit()

@@ -82,11 +82,12 @@ async def consolidate_market_indexes_history(session):
 
     for index in indexes:
         try:
-            await _consolidate_index(index, repo)
+            await _consolidate_index(index, session)
         except Exception as e:
             logger.warning(f'Falha ao consolidar {index.symbol}: {e}')
 
-async def _consolidate_index(index: Index, repo: MarketDataRepository):
+async def _consolidate_index(index: Index, session):
+    repo = MarketDataRepository(session)
     most_recent = await repo.get(
         IndexHistory,
         by={'index_id': index.id},
@@ -108,6 +109,7 @@ async def _consolidate_index(index: Index, repo: MarketDataRepository):
 
     history = history_df.to_dict(orient='records')
     await repo.upsert_bulk(IndexHistory, history, unique_columns=['index_id', 'date'])
+    await session.commit()
     logger.info(f'{index.short_name} consolidado')
 
 def _extend_indexes_to_today(history_df: pd.DataFrame, index_id) -> pd.DataFrame:
@@ -122,7 +124,6 @@ def _extend_indexes_to_today(history_df: pd.DataFrame, index_id) -> pd.DataFrame
         df['close'] = df['close'].fillna(0)
 
     df['close'] = df['close'].ffill()
-
     return df
 
 async def get_usd_brl_history(session, init_date: pd.Timestamp = None, as_df=True) -> pd.DataFrame:
