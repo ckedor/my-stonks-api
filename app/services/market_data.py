@@ -126,7 +126,7 @@ def _extend_indexes_to_today(history_df: pd.DataFrame, index_id) -> pd.DataFrame
     df['close'] = df['close'].ffill()
     return df
 
-async def get_usd_brl_history(session, init_date: pd.Timestamp = None, as_df=True) -> pd.DataFrame:
+async def get_usd_brl_history(session, as_df=True) -> pd.DataFrame:
     cache = CacheService()
     cached = await cache.get_usd_brl_history()
     if cached:

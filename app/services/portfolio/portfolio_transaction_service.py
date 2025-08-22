@@ -3,8 +3,11 @@ from typing import List
 import numpy as np
 import pandas as pd
 
+from app.domain.finance import trade
+from app.infrastructure.db.models.constants.currency import CURRENCY
 from app.infrastructure.db.models.portfolio import Transaction
 from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.services import market_data as market_data_service
 from app.utils.response import df_response
 from app.worker.task_runner import run_task
 from app.worker.tasks.recalculate_asset_position import recalculate_position_asset
@@ -21,9 +24,15 @@ async def get_transactions(session, portfolio_id: int, asset_id: int = None, ass
     repo = PortfolioRepository(session)
     transactions_df = await repo.get_transactions_df(portfolio_id, asset_id, asset_types_ids, currency_id)
     transactions_df['original_price'] = transactions_df['price'].copy()
-    ##transactions_df = await ._normalize_currency(transactions_df, CURRENCY.BRL) #TODO: Normalize Currency
+    
+    transactions_df = await _normalize_to_brl(session, transactions_df)
 
-    transactions_df = _calculate_profits(transactions_df)
+    transactions_df = (
+        transactions_df
+            .sort_values(by=['asset_id', 'date'])
+            .groupby('asset_id', group_keys=False)
+            .apply(trade.profit_by_trade_df)
+    )
     transactions_df['type'] = np.where(transactions_df['quantity'] > 0, 'Compra', 'Venda')
 
     transactions_df['value'] = transactions_df['quantity'] * transactions_df['price']
@@ -37,6 +46,14 @@ async def get_transactions(session, portfolio_id: int, asset_id: int = None, ass
     transactions_df['portfolio_id'] = portfolio_id
     transactions_df.sort_values(by=['date'], inplace=True)
     return df_response(transactions_df)
+
+async def _normalize_to_brl(session, transactions_df) :
+    usdbrl_df = await market_data_service.get_usd_brl_history(session)
+    transactions_df = transactions_df.merge(usdbrl_df, on='date', how='left')
+    transactions_df.loc[transactions_df["currency_id"] == CURRENCY.USD, "price"] = (
+        transactions_df["price"] * transactions_df["usdbrl"]
+    )
+    return transactions_df
 
 async def update_transaction(session, transaction: dict) -> None:
     repo = PortfolioRepository(session)
