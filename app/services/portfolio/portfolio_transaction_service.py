@@ -14,7 +14,6 @@ from app.worker.tasks.recalculate_asset_position import recalculate_position_ass
 
 
 async def create_transaction(session, transaction: dict) -> None:
-   
     repo = PortfolioRepository(session)
     transaction['date'] = pd.to_datetime(transaction['date']).date()
     await repo.create(Transaction, transaction)
@@ -73,34 +72,3 @@ async def delete_transaction(session, transaction_id) -> None:
     repo = PortfolioRepository(session)
     await repo.delete(Transaction, id=transaction_id)
     await session.commit()
-    
-def _calculate_profits(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values(by=['asset_id', 'date']).copy()
-    df['average_price'] = None
-    df['realized_profit'] = None
-
-    for _, group in df.groupby('asset_id'):
-        quantity_held = 0.0
-        total_cost = 0.0
-
-        for idx, row in group.iterrows():
-            qty = row['quantity']
-            price = row['price']
-
-            if qty > 0:
-                total_cost += qty * price
-                quantity_held += qty
-                avg_price = total_cost / quantity_held if quantity_held else 0
-                df.at[idx, 'average_price'] = avg_price
-                df.at[idx, 'realized_profit'] = 0.0
-            else:
-                avg_price = total_cost / quantity_held
-                realized_profit = -qty * (price - avg_price)
-
-                quantity_held += qty
-                total_cost = avg_price * quantity_held if quantity_held > 0 else 0
-
-                df.at[idx, 'average_price'] = avg_price
-                df.at[idx, 'realized_profit'] = realized_profit
-
-    return df

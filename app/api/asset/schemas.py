@@ -190,3 +190,12 @@ class AssetDetailsWithPosition(AssetDetailsOut):
     value: float = 0.0
     acc_return: float = 0.0
     twelve_months_return: Optional[float] = None
+
+class AssetEvent(BaseModel):
+    id: int
+    asset_id: int
+    date: date
+    factor: float
+    type: str
+    
+    model_config = {'from_attributes': True}

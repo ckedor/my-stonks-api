@@ -83,6 +83,7 @@ class PortfolioRepository(DatabaseRepository):
                 Transaction.price,
                 Asset.id.label('asset_id'),
                 Asset.ticker,
+                Asset.asset_type_id,
                 cat_assignment_subq.c.category,
             )
             .join(Asset, Transaction.asset_id == Asset.id)
@@ -96,6 +97,8 @@ class PortfolioRepository(DatabaseRepository):
             stmt = stmt.where(Asset.asset_type_id.in_(asset_types_ids))
         elif asset_id:
             stmt = stmt.where(Transaction.asset_id == asset_id)
+        if currency_id:
+            stmt = stmt.where(Broker.currency_id == currency_id)
 
         result = await self.session.execute(stmt)
         rows = result.all()
@@ -111,6 +114,7 @@ class PortfolioRepository(DatabaseRepository):
                 'price',
                 'asset_id',
                 'ticker',
+                'asset_type_id',
                 'category',
             ],
         )
@@ -284,6 +288,7 @@ class PortfolioRepository(DatabaseRepository):
                 'asset_id',
                 'ticker',
                 'name',
+                'currency_id',
                 'quantity',
                 'price',
                 'twelve_months_return',
@@ -320,6 +325,7 @@ class PortfolioRepository(DatabaseRepository):
                 Position.asset_id,
                 Asset.ticker,
                 Asset.name,
+                Asset.currency_id,
                 Position.quantity,
                 Position.price,
                 Position.twelve_months_return,

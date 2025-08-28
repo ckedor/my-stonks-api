@@ -189,7 +189,7 @@ class DatabaseRepository:
                 raise ValueError('Items in list must be dict or model instances.')
 
         self.session.add_all(instances)
-        self.session.flush()
+        await self.session.flush()
         return [obj.id for obj in instances]
             
 

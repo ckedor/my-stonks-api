@@ -1,5 +1,9 @@
 import pandas as pd
 
+from app.domain.finance.trade import profits_by_month_df
+from app.domain.income_tax.tax_income_calculator import TaxIncomeCalculator
+from app.domain.old.finance.position_calculator import PositionCalculator
+from app.infrastructure.db.models.asset import Event
 from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
 from app.infrastructure.db.models.constants.currency import CURRENCY
 from app.infrastructure.db.repositories.portfolio import PortfolioRepository
@@ -153,8 +157,18 @@ def _map_description(row):
 async def get_fiis_operations_tax(session, portfolio_id: int, fiscal_year: int) -> dict:
     repo = PortfolioRepository(session)
     df = await repo.get_transactions_df(portfolio_id, asset_types_ids=[ASSET_TYPE.FII])
-    response =  await _get_operations_tax(df, fiscal_year, FIITaxCalculator())
-    return df_response(response)
+    
+    events = await repo.get(Event, order_by="date asc")
+    df = apply_split_events(df, events)
+    
+    response =  await _calculate_tax(df, fiscal_year, ASSET_TYPE.FII)
+    grouped = response.groupby('month', as_index=False).agg({
+        'realized_profit': 'sum',
+        'accumulated_loss': 'sum',
+        'tax_due': 'sum',
+        'gross_sales': 'sum'
+    })
+    return df_response(grouped)
 
 async def get_common_operations_tax(session, portfolio_id: int, fiscal_year: int) -> dict:
     repo = PortfolioRepository(session)
@@ -163,47 +177,31 @@ async def get_common_operations_tax(session, portfolio_id: int, fiscal_year: int
         asset_types_ids=[ASSET_TYPE.STOCK],
         currency_id=CURRENCY.BRL
     )
-    br_result = await _get_operations_tax(br_stocks_df, fiscal_year, BRStockTaxCalculator())
+    br_result = await _calculate_tax(br_stocks_df, fiscal_year, ASSET_TYPE.STOCK)
     
     br_etf_bdr_df = await repo.get_transactions_df(
         portfolio_id,
         asset_types_ids=[ASSET_TYPE.ETF, ASSET_TYPE.BDR],
         currency_id=CURRENCY.BRL
     )
-    br_etf_bdr_result = await _get_operations_tax(br_etf_bdr_df, fiscal_year, ETFTaxCalculator())
+    br_etf_bdr_result = await _calculate_tax(br_etf_bdr_df, fiscal_year, ASSET_TYPE.ETF)
 
     merged = pd.concat([br_result, br_etf_bdr_result], ignore_index=True)
     grouped = merged.groupby('month', as_index=False).agg({
         'realized_profit': 'sum',
         'accumulated_loss': 'sum',
         'tax_due': 'sum',
+        'gross_sales': 'sum'
     })
 
     return df_response(grouped)
 
-#cripto_df = await repo.get_transactions_df(
-#        portfolio_id,
-#        asset_types_ids=[ASSET_TYPE.CRIPTO]
-#    )
-#    cripto_result = await _get_operations_tax(cripto_df, fiscal_year, CryptoTaxCalculator())
-#
-#    etfs_bdrs_df = await repo.get_transactions_df(
-#        portfolio_id,
-#        asset_types_ids=[ASSET_TYPE.ETF, ASSET_TYPE.BDR],
-#    )
-#    usa_stocks_df = await repo.get_transactions_df(
-#        portfolio_id,
-#        asset_types_ids=[ASSET_TYPE.STOCK],
-#        currency_id=CURRENCY.USD
-#    )
-#    variable_income_df = pd.concat([etfs_bdrs_df, usa_stocks_df], ignore_index=True)
-#    variable_income_result = await _get_operations_tax(variable_income_df, fiscal_year, ETFTaxCalculator())
-
-async def _get_operations_tax(df: pd.DataFrame, fiscal_year: int, tax_calculator) -> dict:
-    df['total_amount'] = df['quantity'] * df['price']
+async def _calculate_tax(df: pd.DataFrame, fiscal_year: int, asset_type: ASSET_TYPE) -> dict:
+    df.loc[:, 'total_amount'] = df['quantity'] * df['price']
     df = _calculate_monthly_profits(df)
 
-    taxed_df = tax_calculator.calculate_tax(df)
+    tax_calculator = TaxIncomeCalculator(asset_type, df)
+    taxed_df = tax_calculator.calculate_tax()
 
     last_day_fiscal_year = pd.to_datetime(f"{fiscal_year}-12-31")
     last_day_previous_year = pd.to_datetime(f"{fiscal_year - 1}-12-31")
@@ -222,13 +220,12 @@ async def _get_operations_tax(df: pd.DataFrame, fiscal_year: int, tax_calculator
 
     return taxed_df
 
-@staticmethod
 def _calculate_monthly_profits(df: pd.DataFrame) -> pd.DataFrame:
     df = df.sort_values(by=['asset_id', 'date']).copy()
 
     results = []
     for _, group in df.groupby('asset_id'):
-        result = PositionCalculator.calculate_monthly_profits(group)
+        result = profits_by_month_df(group)
         results.append(result)
 
     result = pd.concat(results).sort_index()
@@ -241,35 +238,42 @@ def _calculate_monthly_profits(df: pd.DataFrame) -> pd.DataFrame:
 
 async def get_darf(session, portfolio_id: int, fiscal_year: int) -> dict:
     repo = PortfolioRepository(session)
-    
-    cripto_transactions_df = await repo.get_transactions_df(
-        portfolio_id,
-        asset_types_ids=[ASSET_TYPE.CRIPTO]
-    )
-    cripto_taxes_df = await _get_operations_tax(cripto_transactions_df, fiscal_year, CryptoTaxCalculator())
-    cripto_taxes_df['label'] = 'Criptomoedas (Brasil)'
-    
-    fiis_transactions_df = await repo.get_transactions_df(portfolio_id, asset_types_ids=[ASSET_TYPE.FII])
-    fiis_taxes_df = await _get_operations_tax(fiis_transactions_df, fiscal_year, FIITaxCalculator())
-    fiis_taxes_df['label'] = 'FII'
-    
-    br_stocks_transactions_df = await repo.get_transactions_df(
-        portfolio_id,
-        asset_types_ids=[ASSET_TYPE.STOCK],
-        currency_id=CURRENCY.BRL
-    )
-    br_stocks_taxes_df = await _get_operations_tax(br_stocks_transactions_df, fiscal_year, BRStockTaxCalculator())
-    br_stocks_taxes_df['label'] = 'Bolsa (Brasil)'
-    
-    etf_bdr_transactions_df = await repo.get_transactions_df(
-        portfolio_id,
-        asset_types_ids=[ASSET_TYPE.ETF, ASSET_TYPE.BDR],
-        currency_id=CURRENCY.BRL
-    )
-    etf_bdr_taxes_df = await _get_operations_tax(etf_bdr_transactions_df, fiscal_year, ETFTaxCalculator())
-    etf_bdr_taxes_df['label'] = 'Bolsa (Brasil)'
-    
-    
+
+    transactions_df = await repo.get_transactions_df(portfolio_id)
+    if transactions_df.empty:
+        return {"cripto": pd.DataFrame(), "fiis": pd.DataFrame(), "br_stocks": pd.DataFrame(), "etf_bdr": pd.DataFrame()}
+
+    transactions_df = transactions_df.copy()
+    transactions_df["date"] = pd.to_datetime(transactions_df["date"])
+
+    events = await repo.get(Event, order_by="date asc")
+    transactions_df = apply_split_events(transactions_df, events)
+
+    is_brl = transactions_df["currency_id"] == CURRENCY.BRL
+
+    def by_types(*types, brl_only: bool = False):
+        df = transactions_df.loc[transactions_df["asset_type_id"].isin(types)].copy()
+        if brl_only:
+            df = df.loc[is_brl.reindex(df.index, fill_value=False)]
+        return df
+
+    cripto_df = by_types(ASSET_TYPE.CRIPTO)
+    fiis_df = by_types(ASSET_TYPE.FII)
+    br_stocks_df = by_types(ASSET_TYPE.STOCK, brl_only=True)
+    etf_bdr_df = by_types(ASSET_TYPE.ETF, ASSET_TYPE.BDR, brl_only=True)
+
+    cripto_taxes_df = await _calculate_tax(cripto_df, fiscal_year, ASSET_TYPE.CRIPTO)
+    cripto_taxes_df["label"] = "Criptomoedas (Brasil)"
+
+    fiis_taxes_df = await _calculate_tax(fiis_df, fiscal_year, ASSET_TYPE.FII)
+    fiis_taxes_df["label"] = "FII"
+
+    br_stocks_taxes_df = await _calculate_tax(br_stocks_df, fiscal_year, ASSET_TYPE.STOCK)
+    br_stocks_taxes_df["label"] = "Bolsa (Brasil)"
+
+    etf_bdr_taxes_df = await _calculate_tax(etf_bdr_df, fiscal_year, ASSET_TYPE.ETF)
+    etf_bdr_taxes_df["label"] = "Bolsa (Brasil)"
+
     combined = pd.concat([
         br_stocks_taxes_df,
         fiis_taxes_df,
@@ -278,8 +282,9 @@ async def get_darf(session, portfolio_id: int, fiscal_year: int) -> dict:
     ], ignore_index=True)
     
     grouped = combined.groupby(['month', 'label'], as_index=False).agg({
+        'gross_sales': 'sum',
         'realized_profit': 'sum',
-        'tax_due': 'sum'
+        'tax_due': 'sum',
     })
     
     result = []
@@ -289,6 +294,7 @@ async def get_darf(session, portfolio_id: int, fiscal_year: int) -> dict:
             entries.append({
                 'label': row['label'],
                 'base': row['realized_profit'],
+                'gross_sales': row['gross_sales'],
                 'tax': row['tax_due'],
                 'darf': row['tax_due'],
             })
@@ -300,3 +306,14 @@ async def get_darf(session, portfolio_id: int, fiscal_year: int) -> dict:
     return result
     
         
+def apply_split_events(transactions_df: pd.DataFrame, events) -> pd.DataFrame:
+    if not events:
+        return transactions_df
+    df = transactions_df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    for e in events:
+        mask = (df["asset_id"] == e.asset_id) & (df["date"] < pd.to_datetime(e.date))
+        f = float(e.factor)
+        df.loc[mask, "quantity"] = df.loc[mask, "quantity"] * f
+        df.loc[mask, "price"] = df.loc[mask, "price"] / f
+    return df
