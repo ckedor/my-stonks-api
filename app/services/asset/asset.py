@@ -23,6 +23,11 @@ async def list_events(session):
     events = await repo.get(Event)
     return events
 
+async def create_event(session, event):
+    repo = DatabaseRepository(session)
+    await repo.create(Event, event.model_dump())
+    await session.commit()
+
 async def update_event(session, event):
     repo = DatabaseRepository(session)
     await repo.update(Event, event.model_dump())

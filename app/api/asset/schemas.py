@@ -192,7 +192,7 @@ class AssetDetailsWithPosition(AssetDetailsOut):
     twelve_months_return: Optional[float] = None
 
 class AssetEvent(BaseModel):
-    id: int
+    id: Optional[int]
     asset_id: int
     date: date
     factor: float
