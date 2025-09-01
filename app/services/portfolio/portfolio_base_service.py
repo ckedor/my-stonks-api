@@ -16,7 +16,6 @@ from app.infrastructure.db.repositories.portfolio import PortfolioRepository
 
 
 async def create_portfolio(session, portfolio: CreatePortfolioRequest, user_id: int):
-    # TODO: Unit of Work Pattern
     repo = PortfolioRepository(session)
     id_list = await repo.create(Portfolio, {'name': portfolio.name, 'user_id': user_id})
     user_categories = portfolio.user_categories
@@ -30,7 +29,8 @@ async def create_portfolio(session, portfolio: CreatePortfolioRequest, user_id: 
         for cat in user_categories
     ]
     await repo.create(CustomCategory, categories)
-
+    await session.commit()
+    
     portfolio_id = id_list[0]
     return portfolio_id
 

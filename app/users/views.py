@@ -39,7 +39,7 @@ if settings.ENVIRONMENT in {'development', 'local'}:
 
     async def current_user():
         return User(
-            id=1,
+            id=3,
             email='dev@local',
             hashed_password='fake',
             is_active=True,

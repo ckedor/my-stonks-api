@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-app.add_middleware(DemoUserMiddleware)
+#app.add_middleware(DemoUserMiddleware)
 
 app.add_middleware(SessionMiddleware, secret_key=settings.JWT_SECRET)
 
