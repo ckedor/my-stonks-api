@@ -1,7 +1,10 @@
 from app.infrastructure.db.models.asset import Asset, AssetType, Event
 from app.infrastructure.db.models.asset_fii import FIISegment
 from app.infrastructure.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
+from app.infrastructure.db.models.constants.asset_class import ASSET_CLASS
+from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
 from app.infrastructure.db.models.constants.currency import CURRENCY
+from app.infrastructure.db.models.portfolio import Transaction
 from app.infrastructure.db.repositories.base_repository import DatabaseRepository
 
 
@@ -9,6 +12,17 @@ async def list_assets(session):
     repo = DatabaseRepository(session)
     assets = await repo.get(Asset)
     return assets
+
+async def delete_asset(session, asset_id: int):
+    repo = DatabaseRepository(session)
+
+    ## TODO: Fazer deletes cascade apropriados no BANCO
+    await repo.delete(FixedIncome, by={"asset_id": asset_id})
+    await repo.delete(Transaction, by={"asset_id": asset_id})
+    await repo.delete(Asset, asset_id)
+    
+    await session.commit()
+    return {'message': 'OK'}
 
 async def list_asset_types(session):
     repo = DatabaseRepository(session)

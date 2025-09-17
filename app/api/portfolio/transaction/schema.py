@@ -4,10 +4,9 @@ from pydantic import BaseModel
 
 
 class Transaction(BaseModel):
-    asset_id: int
     portfolio_id: int
-    transaction_type: str
-    quantity: float
-    price: float
+    asset_id: int
     broker_id: int
     date: datetime
+    quantity: float
+    price: float

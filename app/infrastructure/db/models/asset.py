@@ -97,7 +97,7 @@ class Asset(Base):
     fii = relationship('FII', back_populates='asset', uselist=False)
     etf = relationship('ETF', back_populates='asset', uselist=False)
     fund = relationship('InvestmentFund', back_populates='asset', uselist=False)
-    fixed_income = relationship('FixedIncome', back_populates='asset', uselist=False)
+    fixed_income = relationship('FixedIncome', back_populates='asset', uselist=False, cascade='all, delete-orphan')
     treasury_bond = relationship('TreasuryBond', back_populates='asset', uselist=False)
 
     def __repr__(self):

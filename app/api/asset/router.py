@@ -16,6 +16,12 @@ async def list_assets(
 ):
     return await asset_service.list_assets(session)
 
+@router.delete('/assets/{asset_id}')
+async def delete_asset(
+    asset_id: int,
+    session = Depends(get_session),
+):
+    return await asset_service.delete_asset(session, asset_id)
 
 @router.get('/types', response_model=List[AssetType])
 async def list_asset_types(

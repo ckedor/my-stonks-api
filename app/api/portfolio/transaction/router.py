@@ -18,7 +18,7 @@ async def create_transaction(
     session = Depends(get_session),
 ):
     await service.create_transaction(session, transaction.model_dump())
-    run_task(recalculate_position_asset, transaction['portfolio_id'], transaction['asset_id'])
+    run_task(recalculate_position_asset, transaction.portfolio_id, transaction.asset_id)
     return {'message': 'Transaction created'}
 
 

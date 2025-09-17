@@ -15,3 +15,4 @@ class ASSET_TYPE(IntEnum):
     CRA = 11
     REIT = 12
     CRIPTO = 13
+    LCA = 14
