@@ -22,7 +22,7 @@ class PortfolioFixedIncomeRepository(PortfolioRepository):
         ):
         stmt = await self._build_portfolio_position_query(portfolio_id, date)
         
-        stmt = stmt.where(Asset.asset_type_id.in_([ASSET_TYPE.TREASURY, ASSET_TYPE.CDB, ASSET_TYPE.DEB, ASSET_TYPE.CRI, ASSET_TYPE.CRA]))
+        stmt = stmt.where(Asset.asset_type_id.in_([ASSET_TYPE.TREASURY, ASSET_TYPE.CDB, ASSET_TYPE.DEB, ASSET_TYPE.CRI, ASSET_TYPE.CRA, ASSET_TYPE.LCA]))
         
         stmt = (
             stmt.join(FixedIncome, FixedIncome.asset_id == Asset.id, isouter=True)

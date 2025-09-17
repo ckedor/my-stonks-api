@@ -212,6 +212,7 @@ def _is_fixed_income(asset):
         ASSET_TYPE.CRA,
         ASSET_TYPE.DEB,
         ASSET_TYPE.CDB,
+        ASSET_TYPE.LCA,
     }
 
 @staticmethod
