@@ -2,22 +2,22 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
 
-from app.infrastructure.db.models.portfolio import Transaction
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
 from app.infrastructure.db.session import get_session
 from app.services.portfolio import portfolio_transaction_service as service
 from app.worker.task_runner import run_task
 from app.worker.tasks.recalculate_asset_position import recalculate_position_asset
+
+from .schema import Transaction
 
 router = APIRouter(prefix='/transaction', tags=['Portfolio Transaction'])
 
 
 @router.post('/')
 async def create_transaction(
-    transaction: dict,
+    transaction: Transaction,
     session = Depends(get_session),
 ):
-    await service.create_transaction(session, transaction)
+    await service.create_transaction(session, transaction.model_dump())
     run_task(recalculate_position_asset, transaction['portfolio_id'], transaction['asset_id'])
     return {'message': 'Transaction created'}
 
@@ -57,4 +57,6 @@ async def delete_transaction(
 ):
     await service.delete_transaction(session, transaction_id)
     run_task(recalculate_position_asset, portfolio_id, asset_id)
+    return {'message': 'Transaction deleted'}
+    return {'message': 'Transaction deleted'}
     return {'message': 'Transaction deleted'}

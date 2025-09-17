@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from app.infrastructure.db.session import get_session
 from app.services.asset import asset as asset_service
 
-from .schemas import Asset, AssetEvent, AssetType
+from .schemas import Asset, AssetEvent, AssetType, FixedIncomeAsset, FixedIncomeType
 
 router = APIRouter(tags=['Assets'], prefix='/assets')
 
@@ -22,6 +22,19 @@ async def list_asset_types(
     session = Depends(get_session),
 ):
     return await asset_service.list_asset_types(session)
+
+@router.post('/fixed_income')
+async def create_fixed_income(
+    fixed_income: FixedIncomeAsset,
+    session = Depends(get_session),
+):
+    return await asset_service.create_fixed_income(session, fixed_income.model_dump())
+
+@router.get('/fixed_income/types', response_model=List[FixedIncomeType])
+async def list_fixed_income_types(
+    session = Depends(get_session),
+):
+    return await asset_service.list_fixed_income_types(session)
 
 @router.get('/fiis/segments')
 async def get_segments(

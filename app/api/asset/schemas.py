@@ -160,10 +160,6 @@ class ETFOut(BaseModel):
     segment: Optional[ETFSegmentOut]
     model_config = {'from_attributes': True}
 
-
-# --- Final Asset Model ---
-
-
 class AssetDetailsOut(BaseModel):
     id: int
     ticker: Optional[str]
@@ -199,3 +195,22 @@ class AssetEvent(BaseModel):
     type: str
     
     model_config = {'from_attributes': True}
+
+
+class FixedIncomeType(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+class FixedIncomeAsset(BaseModel):
+    name: str
+    ticker: str
+    maturity_date: date
+    fee: float
+    index_id: Optional[int]
+    fixed_income_type_id: int
+    asset_type_id: int
+    
+    model_config = ConfigDict(from_attributes=True)
