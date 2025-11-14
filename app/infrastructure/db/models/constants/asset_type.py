@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class ASSET_TYPE(IntEnum):

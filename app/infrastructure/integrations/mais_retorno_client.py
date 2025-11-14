@@ -35,4 +35,24 @@ class MaisRetornoClient:
         df['date'] = pd.to_datetime(df['d'], unit='ms').dt.normalize()
         df['close'] = df['c']
         df['currency'] = 'BRL'
+        
+        df = df.set_index('date').asfreq('D').reset_index()
+        df[['close']] = df[['close']].fillna(method='ffill')
+        
         return df[['date', 'close', 'currency']].sort_values('date').reset_index(drop=True)
+    
+    def get_quotes(
+        self,
+        fund_legal_id: str, 
+        start_date: datetime = None, 
+        end_date: datetime = None,
+    ):
+        history_df = self.get_fund_price_history_df(fund_legal_id, start_date)
+        if start_date:
+            history_df = history_df[history_df['date'] >= pd.to_datetime(start_date).normalize()]
+        if end_date:
+            history_df = history_df[history_df['date'] <= pd.to_datetime(end_date).normalize()]
+        return {
+            'currency': 'BRL',
+            'quotes': history_df[['date', 'close']], 
+        } 

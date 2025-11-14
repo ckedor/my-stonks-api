@@ -35,3 +35,23 @@ class TesouroClient:
         df = df.reset_index()
         df['currency'] = 'BRL'
         return df[['date', 'close', 'currency']]
+    
+    def get_quotes(
+        self, 
+        treasury_type,
+        treasury_maturity_date,
+        start_date = None,
+        end_date = None,        
+        ):
+        
+        history_df = self.get_precos_tesouro(treasury_type, treasury_maturity_date)
+        
+        if start_date:
+            history_df = history_df[history_df['date'] >= pd.to_datetime(start_date).normalize()]
+        if end_date:
+            history_df = history_df[history_df['date'] <= pd.to_datetime(end_date).normalize()]
+        
+        return {
+            'currency': 'BRL',
+            'quotes': history_df[['date', 'close']], 
+        }

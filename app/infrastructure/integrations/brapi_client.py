@@ -26,7 +26,7 @@ class BrapiClient:
         except Exception as e:
             raise ValueError(f'Error fetching data from BRAPI: {e}') from e
 
-    def get_quotes(
+    def _get_quotes(
         self, tickers, range='1y', interval='1d', modules='summaryProfile'
     ) -> Dict[str, Any]:
         endpoint = f'/quote/{",".join(tickers)}'
@@ -71,9 +71,27 @@ class BrapiClient:
 
         return 'max'
 
+    def extend_values_to_today(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+
+        df = df.sort_values('date').reset_index(drop=True)
+        last_date = df['date'].max()
+        today = pd.Timestamp.today().normalize()
+
+        if last_date < today:
+            full_range = pd.date_range(start=last_date, end=today, freq='D')
+            extended_df = pd.DataFrame({'date': full_range})
+            df = pd.merge(extended_df, df, on='date', how='left')
+            df[['open', 'high', 'low', 'close', 'volume']] = df[
+                ['open', 'high', 'low', 'close', 'volume']
+            ].fillna(method='ffill')
+
+        return df
+
     def get_price_history_df(self, ticker: str, init_date, interval: str = '1d') -> pd.DataFrame:
         range = self._brapi_range_from_init_date(init_date)
-        asset_quotes = self.get_quotes([ticker], range, interval)
+        asset_quotes = self._get_quotes([ticker], range, interval)
 
         try:
             asset = asset_quotes['results'][0]
@@ -82,12 +100,41 @@ class BrapiClient:
             df['date'] = pd.to_datetime(df['date'], unit='s')
             df['currency'] = asset.get('currency')
             df['date'] = pd.to_datetime(df['date'], unit='s').dt.normalize()
+            df = self.extend_values_to_today(df)
+            
             return df
 
         except Exception as e:
             raise ValueError(
                 f'Erro ao buscar dados do BRApi. Ticker: {ticker}. Erro: {str(e)}'
             ) from e
+            
+    def get_quotes(
+        self, 
+        ticker: str, 
+        init_date, 
+        end_date = None,
+        interval: str = '1d'
+    ) -> List[Dict[str, Any]]:
+        
+        df = self.get_price_history_df(ticker, init_date, interval)
+        if interval == '1d':
+            df = df.set_index('date').asfreq('D').reset_index()
+            df = df.fillna(method='ffill').fillna(method='bfill')
+        if end_date:
+            end_date = pd.to_datetime(end_date).normalize()
+            df = df[df['date'] <= end_date]
+        if init_date:
+            init_date = pd.to_datetime(init_date).normalize()
+            df = df[df['date'] >= init_date]
+
+        currency = df['currency'].iloc[0] if not df.empty else None
+        quotes = df[['date', 'open', 'high', 'low', 'close', 'volume']].to_dict(orient='records')
+        return {
+            'ticker': ticker,
+            'currency': currency,
+            'quotes': quotes,
+        }
 
     def get_dividends(
         self, tickers: Union[str, List[str]], range: str = '1y'

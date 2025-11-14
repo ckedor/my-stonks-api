@@ -1,8 +1,9 @@
 
 
 
+import datetime
 from datetime import date
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, RootModel
 
@@ -36,3 +37,18 @@ class MarketIndexesTimeSeries(RootModel[Dict[str, List[IndexPoint]]]):
 
 class USD_BRL_History(RootModel[List[IndexPoint]]):
     model_config = ConfigDict(from_attributes=True)
+
+
+class OHLCV(BaseModel):
+    date: datetime.datetime
+    close: float
+    open: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
+    volume: Optional[int] = None
+
+class QuoteResponse(BaseModel):
+    ticker: str
+    asset_type: str
+    currency: Optional[str] = None
+    quotes: List[OHLCV]

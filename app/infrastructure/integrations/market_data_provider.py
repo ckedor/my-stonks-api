@@ -4,6 +4,7 @@ from app.config.logger import logger
 from app.infrastructure.db.models.asset import Asset
 from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
 from app.infrastructure.db.models.constants.currency import CURRENCY
+from app.infrastructure.db.models.constants.exchange import EXCHANGE
 from app.infrastructure.db.models.constants.fii_segments import FIISegment
 from app.infrastructure.db.models.constants.index import INDEX
 from app.infrastructure.db.models.market_data import Index
@@ -141,3 +142,66 @@ class MarketDataProvider:
                 logger.error(f'Falha ao obter dividendos do FII {ticker}: {e}')
                 raise e
         return provents_df
+    
+    def get_asset_quotes(
+        self,
+        ticker: str,
+        asset_type: str | None = None,
+        exchange: str | None = None,
+        date: str = None,
+        start_date: str = None,
+        end_date: str = None,
+        treasury_maturity_date: str = None,
+        treasury_type: str = None,
+    ) -> float | None:
+        if date:
+            start_date = pd.to_datetime(date)
+            end_date = pd.to_datetime(date)
+        
+        if asset_type in {
+            ASSET_TYPE.ETF.name,
+            ASSET_TYPE.STOCK.name,
+            ASSET_TYPE.FII.name,
+            ASSET_TYPE.BDR.name,
+        }:
+            history = self.brapi_client.get_quotes(
+                ticker,
+                start_date,
+                end_date,
+                interval='1d',
+            )
+            if not history['quotes']:
+                ticker += '.SA' if exchange == EXCHANGE.B3 else ''
+                history = self.alphavantage_client.get_quotes(
+                    ticker,
+                    init_date=start_date,
+                    end_date=end_date,
+                )
+            
+        elif asset_type == ASSET_TYPE.CRIPTO.name:
+            history = self.crypto_compare_client.get_quotes(
+                ticker,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        
+        elif asset_type == ASSET_TYPE.PREV.name:
+            history = self.mais_retorno_client.get_quotes(
+                extract_digits(ticker),
+                start_date=start_date,
+            )
+        
+        elif asset_type == ASSET_TYPE.TREASURY.name:
+            history = self.tesouro_client.get_quotes(
+                treasury_type,
+                pd.to_datetime(treasury_maturity_date),
+                start_date=start_date,
+                end_date=end_date,
+            )
+             
+        return {
+            'ticker': ticker,
+            'asset_type': asset_type,
+            'currency': history.get('currency'),
+            'quotes': history.get('quotes', []),
+        }

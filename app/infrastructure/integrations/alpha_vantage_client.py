@@ -31,12 +31,36 @@ class AlphaVantageClient:
                 df['currency'] = 'BRL'
             else:
                 df['currency'] = 'USD'
+                
+            df = df.set_index('date').asfreq('D').reset_index()
+            df[['open', 'high', 'low', 'close']] = df[
+                ['open', 'high', 'low', 'close']
+            ].fillna(method='ffill')
 
             return df[['date', 'open', 'high', 'low', 'close', 'currency']]
 
         except Exception as e:
             print('AlphaVantage: Erro ao buscar dados históricos: ', str(e))
             raise e
+        
+    def get_quotes(
+        self, 
+        symbol: str, 
+        init_date = None, 
+        end_date = None,
+        ) -> pd.DataFrame:
+        df = self.get_price_history_df(symbol)
+        if end_date:
+            end_date = pd.to_datetime(end_date).normalize()
+            df = df[df['date'] <= end_date]
+        if init_date:
+            init_date = pd.to_datetime(init_date).normalize()
+            df = df[df['date'] >= init_date]    
+        return {
+            'ticker': symbol,
+            'currency': df['currency'].iloc[0] if not df.empty else None,
+            'quotes': df[['date', 'open', 'high', 'low', 'close']].to_dict(orient='records'),
+        }
 
     def get_sp500_history(self):
         try:

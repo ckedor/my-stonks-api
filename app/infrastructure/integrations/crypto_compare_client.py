@@ -75,8 +75,32 @@ class CryptoCompareClient:
         )
 
         df['date'] = pd.to_datetime(df['date'], unit='s')
-        df['currency'] = 'USD'
-        df = df[['date', 'open', 'close', 'high', 'low', 'volume', 'currency']]
+        df = df[['date', 'open', 'close', 'high', 'low', 'volume']]
         df = df.sort_values('date').reset_index(drop=True)
-
+        
+        df = df.set_index('date').asfreq('D').reset_index()
+        df[['open', 'close', 'high', 'low', 'volume']] = df[
+            ['open', 'close', 'high', 'low', 'volume']
+        ].fillna(method='ffill')
+    
+        df['currency'] = 'USD'
         return df
+    
+    def get_quotes(
+        self, 
+        ticker: str, 
+        start_date = None, 
+        end_date = None,
+    ):
+        history_df = self.get_crypto_price_history_df(ticker, init_date=start_date)
+        if end_date:
+            end_date = pd.to_datetime(end_date).normalize()
+            history_df = history_df[history_df['date'] <= end_date]
+        if start_date:
+            start_date = pd.to_datetime(start_date).normalize()
+            history_df = history_df[history_df['date'] >= start_date]
+        return {
+            'ticker': ticker,
+            'currency': history_df['currency'].iloc[0] if not history_df.empty else None,
+            'quotes': history_df[['date', 'open', 'high', 'low', 'close']].to_dict(orient='records'),
+        }

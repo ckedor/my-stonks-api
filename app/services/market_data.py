@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
 import pandas as pd
 
@@ -160,3 +161,28 @@ async def get_usd_brl_history(session, as_df=True) -> pd.DataFrame:
         df['date'] = pd.to_datetime(df['date'])
         return df
     return payload
+
+async def get_asset_quotes(
+    ticker: str,
+    asset_type: str | None = None,
+    exchange: str | None = None,
+    date: str = None,
+    start_date: str = None,
+    end_date: str = None,
+    treasury_type: str = None,
+    treasury_maturity_date: str = None
+) -> float | None:
+    market_data_provider = MarketDataProvider()
+    
+    return market_data_provider.get_asset_quotes(
+        ticker,
+        asset_type,
+        exchange,
+        date,
+        start_date,
+        end_date,
+        treasury_type=treasury_type,
+        treasury_maturity_date=treasury_maturity_date,
+    )
+    
+    
