@@ -3,8 +3,10 @@ import datetime
 import pandas as pd
 from fastapi import HTTPException
 
+import app.services.market_data as market_data_service
 from app.api.asset.schemas import AssetDetailsOut, AssetDetailsWithPosition
 from app.domain.old.finance.returns_calculator import ReturnsCalculator
+from app.infrastructure.db.models.constants.currency import CURRENCY
 from app.infrastructure.db.models.portfolio import Position
 from app.infrastructure.db.repositories.portfolio import PortfolioRepository
 from app.utils.df import df_to_named_dict
@@ -38,6 +40,20 @@ async def get_asset_details(session, portfolio_id: int, asset_id: int = None) ->
     }
     return AssetDetailsWithPosition(**asset_serialized_with_position) ##TODO: Será q a camada service deveria conhecer o model pydantic?
 
+async def get_aported_history(
+    session, portfolio_id: int
+):
+    repo = PortfolioRepository(session)
+    transactions_df = await repo.get_transactions_df(portfolio_id)
+    usd_brl_df = await market_data_service.get_usd_brl_history(session, transactions_df['date'].min())
+    transactions_df = transactions_df.merge(usd_brl_df[['date', 'usdbrl']], on='date', how='left')
+    transactions_df['amount'] = transactions_df.apply(
+        lambda row: row['quantity'] * row['price'] * (row['usdbrl'] if row['currency_id'] == CURRENCY.USD else 1), axis=1
+    )
+    total_aported = transactions_df.groupby('date')['amount'].sum().reset_index()
+    total_aported.rename(columns={'amount': 'aported'}, inplace=True)
+    return total_aported
+
 async def get_patrimony_evolution(
     session, portfolio_id: int, 
     asset_id: int = None, 
@@ -45,6 +61,7 @@ async def get_patrimony_evolution(
     asset_type_ids: list = None, 
     currency_id: int = None
 ) -> pd.DataFrame:
+    
     repo = PortfolioRepository(session)
     portfolio_position_df = await repo.get_portfolio_position_df(
         portfolio_id, 
@@ -55,10 +72,7 @@ async def get_patrimony_evolution(
     )
 
     if portfolio_position_df.empty:
-        raise HTTPException(
-            status_code=404,
-            detail=f'Position not found for portfolio {portfolio_id}',
-        )
+        return None
 
     #portfolio_position_df = await _normalize_currency(portfolio_position_df, currency) # TODO: Normalizar currency
 
@@ -75,7 +89,15 @@ async def get_patrimony_evolution(
     ).reset_index()
 
     result = total_df.merge(category_pivot, on='date', how='left')
-
+    
+    aported_history = await get_aported_history(session, portfolio_id)
+    result = result.merge(aported_history[['date', 'aported']], on='date', how='left')
+    result['aported'] = (
+        result['aported']
+        .fillna(0)
+        .cumsum()
+    )
+    
     return result
 
 async def get_portfolio_returns(
