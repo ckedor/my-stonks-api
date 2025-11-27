@@ -46,7 +46,6 @@ async def consolidate_position_portfolio(session, portfolio_id):
 
 async def recalculate_position_asset(session, portfolio_id, asset_id):
     try:
-        
         repo = PortfolioRepository(session)
         asset = await repo.get(Asset, asset_id, first=True, relations=["treasury_bond", "fixed_income"]) #TODO: eu preciso fazer o select in load do trasury_bond. Mas aqui não faz mt sentido. Repensar.
         transactions_df = await get_transactions(session, portfolio_id, asset_id)

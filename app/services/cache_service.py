@@ -5,7 +5,7 @@ from app.services.portfolio import portfolio_position_service
 class CacheService:
     def __init__(self):
         self.redis = RedisService()
-        self.ttl = 60 * 60 * 10
+        self.ttl = 60 * 60 * 4
 
     async def set_patrimony_evolution_cache(self, patrimony_evolution, portfolio_id: str) -> None:
         patrimony_evolution_json_str = patrimony_evolution.to_json(

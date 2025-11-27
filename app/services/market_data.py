@@ -128,14 +128,14 @@ def _extend_indexes_to_today(history_df: pd.DataFrame, index_id) -> pd.DataFrame
     return df
 
 async def get_usd_brl_history(session, as_df=True) -> pd.DataFrame:
-    cache = CacheService()
-    cached = await cache.get_usd_brl_history()
-    if cached:
-        if as_df:
-            df = pd.DataFrame(cached)
-            df['date'] = pd.to_datetime(df['date'])
-            return df
-        return cached
+    #cache = CacheService()
+    #cached = await cache.get_usd_brl_history()
+    #if cached:
+    #    if as_df:
+    #        df = pd.DataFrame(cached)
+    #        df['date'] = pd.to_datetime(df['date'])
+    #        return df
+    #    return cached
 
     min_required_date = pd.Timestamp.today() - pd.DateOffset(years=10)
 
@@ -154,7 +154,7 @@ async def get_usd_brl_history(session, as_df=True) -> pd.DataFrame:
         }
         for o in usdbrl
     ]
-    await cache.set_usd_brl_history(payload)
+    #await cache.set_usd_brl_history(payload)
 
     if as_df:
         df = pd.DataFrame(payload)

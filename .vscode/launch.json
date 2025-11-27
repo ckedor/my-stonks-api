@@ -28,7 +28,8 @@
       "args": [
         "-A", "app.worker.celery_app",
         "worker", 
-        "-l", "info", "--pool=solo"
+        "-l", "info", "--pool=solo", 
+        "--beat"
       ],
       "env": {
         "PYTHONPATH": "${workspaceFolder}"

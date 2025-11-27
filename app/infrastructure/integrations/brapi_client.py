@@ -6,8 +6,7 @@ import pandas as pd
 import requests
 
 from app.config.settings import settings
-
-logger = logging.getLogger(__name__)
+from app.utils.df import extend_values_to_today
 
 
 class BrapiClient:
@@ -71,24 +70,6 @@ class BrapiClient:
 
         return 'max'
 
-    def extend_values_to_today(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            return df
-
-        df = df.sort_values('date').reset_index(drop=True)
-        last_date = df['date'].max()
-        today = pd.Timestamp.today().normalize()
-
-        if last_date < today:
-            full_range = pd.date_range(start=last_date, end=today, freq='D')
-            extended_df = pd.DataFrame({'date': full_range})
-            df = pd.merge(extended_df, df, on='date', how='left')
-            df[['open', 'high', 'low', 'close', 'volume']] = df[
-                ['open', 'high', 'low', 'close', 'volume']
-            ].fillna(method='ffill')
-
-        return df
-
     def get_price_history_df(self, ticker: str, init_date, interval: str = '1d') -> pd.DataFrame:
         range = self._brapi_range_from_init_date(init_date)
         asset_quotes = self._get_quotes([ticker], range, interval)
@@ -97,11 +78,9 @@ class BrapiClient:
             asset = asset_quotes['results'][0]
             history = asset.get('historicalDataPrice', [])
             df = pd.DataFrame(history)
-            df['date'] = pd.to_datetime(df['date'], unit='s')
             df['currency'] = asset.get('currency')
             df['date'] = pd.to_datetime(df['date'], unit='s').dt.normalize()
-            df = self.extend_values_to_today(df)
-            
+            df = extend_values_to_today(df)
             return df
 
         except Exception as e:

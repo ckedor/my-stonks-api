@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 
 from app.config.settings import settings
+from app.utils.df import extend_values_to_today
 
 
 class CryptoCompareClient:
@@ -76,14 +77,9 @@ class CryptoCompareClient:
 
         df['date'] = pd.to_datetime(df['date'], unit='s')
         df = df[['date', 'open', 'close', 'high', 'low', 'volume']]
-        df = df.sort_values('date').reset_index(drop=True)
-        
-        df = df.set_index('date').asfreq('D').reset_index()
-        df[['open', 'close', 'high', 'low', 'volume']] = df[
-            ['open', 'close', 'high', 'low', 'volume']
-        ].fillna(method='ffill')
-    
         df['currency'] = 'USD'
+        
+        df = extend_values_to_today(df)
         return df
     
     def get_quotes(
