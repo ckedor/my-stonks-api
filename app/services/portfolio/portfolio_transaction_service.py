@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 
 from app.domain.finance import trade
-from app.infrastructure.db.models.constants.currency import CURRENCY
-from app.infrastructure.db.models.portfolio import Transaction
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.entrypoints.worker.task_runner import run_task
+from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.portfolio import Transaction
+from app.infra.db.repositories.portfolio import PortfolioRepository
 from app.services import market_data as market_data_service
 from app.utils.response import df_response
-from app.worker.task_runner import run_task
 from app.worker.tasks.recalculate_asset_position import recalculate_position_asset
 
 

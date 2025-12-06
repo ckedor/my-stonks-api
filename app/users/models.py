@@ -2,7 +2,7 @@ from fastapi_users.db import SQLAlchemyBaseUserTable
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.infrastructure.db.base import Base
+from app.infra.db.base import Base
 
 
 class User(SQLAlchemyBaseUserTable[int], Base):

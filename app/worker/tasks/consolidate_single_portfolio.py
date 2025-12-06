@@ -1,10 +1,10 @@
 from app.config.logger import logger
-from app.worker.task_runner import celery_async_task
+from app.entrypoints.worker.task_runner import celery_async_task
 
 
 @celery_async_task(name="consolidate_single_portfolio")
 async def consolidate_single_portfolio(portfolio_id: int):
-    from app.infrastructure.db.session import AsyncSessionLocal
+    from app.infra.db.session import AsyncSessionLocal
     from app.services.portfolio import portfolio_consolidator_service
     
     logger.info(f"🟢 consolidate_single_portfolio para {portfolio_id}")

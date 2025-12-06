@@ -7,7 +7,7 @@ from app.api.portfolio.dividend.schema import (
     DividendFilters,
     DividendUpdateRequest,
 )
-from app.infrastructure.db.session import get_session
+from app.infra.db.session import get_session
 from app.services.portfolio import portfolio_dividend_service
 
 router = APIRouter(prefix='/dividends', tags=['Portfolio Dividends'])

@@ -2,7 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from app.infrastructure.db.session import get_session
+from app.infra.db.session import get_session
 from app.services.brokers import brokers_service as service
 
 from .schemas import Broker

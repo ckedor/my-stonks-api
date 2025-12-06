@@ -1,6 +1,6 @@
 from app.config.logger import logger
-from app.infrastructure.db.session import AsyncSessionLocal
-from app.worker.task_runner import celery_async_task
+from app.entrypoints.worker.task_runner import celery_async_task
+from app.infra.db.session import AsyncSessionLocal
 
 
 @celery_async_task(name="set_portfolio_returns_cache")

@@ -2,9 +2,9 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, Query
 
-from app.infrastructure.db.session import get_session
+from app.entrypoints.worker.task_runner import run_task
+from app.infra.db.session import get_session
 from app.services.portfolio import portfolio_transaction_service as service
-from app.worker.task_runner import run_task
 from app.worker.tasks.recalculate_asset_position import recalculate_position_asset
 
 from .schema import Transaction

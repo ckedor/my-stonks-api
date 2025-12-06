@@ -1,5 +1,5 @@
 from app.config.logger import logger
-from app.worker.task_runner import celery_async_task, run_task
+from app.entrypoints.worker.task_runner import celery_async_task, run_task
 from app.worker.tasks.consolidate_single_portfolio import consolidate_single_portfolio
 from app.worker.tasks.set_patrimony_evolution_cache import set_patrimony_evolution_cache
 from app.worker.tasks.set_portfolio_returns_cache import set_portfolio_returns_cache
@@ -7,9 +7,9 @@ from app.worker.tasks.set_portfolio_returns_cache import set_portfolio_returns_c
 
 @celery_async_task(name="consolidate_all_portfolios")
 async def consolidate_all_portfolios():
-    from app.infrastructure.db.models.portfolio import Portfolio
-    from app.infrastructure.db.repositories.base_repository import DatabaseRepository
-    from app.infrastructure.db.session import AsyncSessionLocal
+    from app.infra.db.models.portfolio import Portfolio
+    from app.infra.db.repositories.base_repository import DatabaseRepository
+    from app.infra.db.session import AsyncSessionLocal
     logger.info("🟢 consolidate_all_portfolios")
     try:
         async with AsyncSessionLocal() as session:

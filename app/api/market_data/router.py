@@ -4,12 +4,12 @@ from fastapi import APIRouter, Depends
 from fastapi.params import Query
 
 import app.services.market_data as service
-from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
-from app.infrastructure.db.models.constants.exchange import EXCHANGE
-from app.infrastructure.db.session import get_session
+from app.entrypoints.worker.task_runner import run_task
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
+from app.infra.db.models.constants.exchange import EXCHANGE
+from app.infra.db.session import get_session
 from app.users.models import User
 from app.users.views import current_active_user, current_superuser
-from app.worker.task_runner import run_task
 from app.worker.tasks.set_indexes_history_cache import set_indexes_history_cache
 
 from .schemas import (

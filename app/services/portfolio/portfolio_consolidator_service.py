@@ -7,19 +7,19 @@ from fastapi import HTTPException
 from app.config.logger import logger
 from app.domain.finance.trade import average_price
 from app.domain.old.finance.fixed_income_calculator import FixedIncomeCalculator
-from app.infrastructure.db.models.asset import Asset, Event
-from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
-from app.infrastructure.db.models.constants.currency import CURRENCY, CURRENCY_MAP
-from app.infrastructure.db.models.constants.user_configuration import USER_CONFIGURATION
-from app.infrastructure.db.models.portfolio import (
+from app.infra.db.models.asset import Asset, Event
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
+from app.infra.db.models.constants.currency import CURRENCY, CURRENCY_MAP
+from app.infra.db.models.constants.user_configuration import USER_CONFIGURATION
+from app.infra.db.models.portfolio import (
     Dividend,
     PortfolioUserConfiguration,
     Position,
     Transaction,
 )
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
-from app.infrastructure.integrations.market_data_provider import MarketDataProvider
+from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.portfolio import PortfolioRepository
+from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.services import market_data as market_data_service
 
 

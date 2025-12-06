@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends
 
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
-from app.infrastructure.db.session import get_session
+from app.entrypoints.worker.task_runner import run_task
+from app.infra.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.session import get_session
 from app.services.portfolio import portfolio_consolidator_service as service
 from app.users.views import current_superuser
-from app.worker.task_runner import run_task
 from app.worker.tasks.set_patrimony_evolution_cache import set_patrimony_evolution_cache
 from app.worker.tasks.set_portfolio_returns_cache import set_portfolio_returns_cache
 

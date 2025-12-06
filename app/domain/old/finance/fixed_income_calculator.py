@@ -3,14 +3,14 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from app.infrastructure.db.models.asset import Asset
-from app.infrastructure.db.models.asset_fixed_income import FixedIncome
-from app.infrastructure.db.models.constants.asset_fixed_income_type import (
+from app.infra.db.models.asset import Asset
+from app.infra.db.models.asset_fixed_income import FixedIncome
+from app.infra.db.models.constants.asset_fixed_income_type import (
     ASSET_FIXED_INCOME_TYPE,
 )
-from app.infrastructure.db.models.market_data import IndexHistory
-from app.infrastructure.db.models.portfolio import Dividend
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.models.market_data import IndexHistory
+from app.infra.db.models.portfolio import Dividend
+from app.infra.db.repositories.base_repository import DatabaseRepository
 
 
 ## TODO: O FixedIncomeCalculator não deve depender do DatabaseRepository. Além disso deve ser movida a logica de negócio pra funcção pura em finanças

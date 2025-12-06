@@ -1,4 +1,4 @@
-from app.infrastructure.redis.redis_service import RedisService
+from app.infra.redis.redis_service import RedisService
 from app.services.portfolio import portfolio_position_service
 
 

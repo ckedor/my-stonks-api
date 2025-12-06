@@ -8,8 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from alembic import command
 from alembic.config import Config
-from app.infrastructure.db.base import Base
-from app.infrastructure.db.sync_session import get_sync_session
+from app.infra.db.base import Base
 from app.main import app
 from app.users.decorators import authenticated
 from app.users.models import User
@@ -78,11 +77,6 @@ def db():
     session = TestingSessionLocal()
     yield session
     session.close()
-
-
-@pytest.fixture(autouse=True)
-def override_get_db(db):
-    app.dependency_overrides[get_sync_session] = lambda: db
 
 
 @pytest_asyncio.fixture

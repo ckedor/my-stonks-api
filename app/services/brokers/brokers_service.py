@@ -1,5 +1,5 @@
-from app.infrastructure.db.models.portfolio import Broker
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.models.portfolio import Broker
+from app.infra.db.repositories.base_repository import DatabaseRepository
 
 
 async def list_brokers(session):

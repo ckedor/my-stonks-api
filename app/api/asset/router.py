@@ -2,7 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends
 
-from app.infrastructure.db.session import get_session
+from app.infra.db.session import get_session
 from app.services.asset import asset as asset_service
 
 from .schemas import Asset, AssetEvent, AssetType, FixedIncomeAsset, FixedIncomeType

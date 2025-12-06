@@ -11,9 +11,9 @@ from app.services.portfolio import portfolio_consolidator_service
 def consolidate_fiis_dividends():
     logger.info("🟢 consolidate_fiis_dividends")
 
-    from app.infrastructure.db.models.portfolio import Portfolio
-    from app.infrastructure.db.repositories.portfolio import PortfolioRepository
-    from app.infrastructure.db.session import AsyncSessionLocal
+    from app.infra.db.models.portfolio import Portfolio
+    from app.infra.db.repositories.portfolio import PortfolioRepository
+    from app.infra.db.session import AsyncSessionLocal
     
     async def wrapper():
         async with AsyncSessionLocal() as session:

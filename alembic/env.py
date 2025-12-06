@@ -13,8 +13,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from app.config.settings import settings
 
 # 📥 Models
-from app.infrastructure.db import models
-from app.infrastructure.db.base import Base
+from app.infra.db import models
+from app.infra.db.base import Base
 from app.users import models
 
 # 🎯 Metadata para o autogenerate funcionar

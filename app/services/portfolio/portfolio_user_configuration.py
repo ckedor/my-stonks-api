@@ -1,11 +1,8 @@
 from fastapi import HTTPException
 
 from app.api.portfolio.user_configuration.schemas import UserConfigurationUpdateRequest
-from app.infrastructure.db.models.portfolio import (
-    ConfigurationName,
-    PortfolioUserConfiguration,
-)
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.models.portfolio import ConfigurationName, PortfolioUserConfiguration
+from app.infra.db.repositories.portfolio import PortfolioRepository
 
 
 async def get_user_configurations(session, portfolio_id: int):

@@ -1,12 +1,12 @@
 from app.api.market_data.schemas import MarketIndexesTimeSeries
 from app.config.logger import logger
-from app.worker.task_runner import celery_async_task
+from app.entrypoints.worker.task_runner import celery_async_task
 
 
 @celery_async_task(name="set_indexes_history_cache")
 async def set_indexes_history_cache():
     import app.services.market_data as market_data_service
-    from app.infrastructure.db.session import AsyncSessionLocal
+    from app.infra.db.session import AsyncSessionLocal
     from app.services.cache_service import CacheService
     
     logger.info("🟢 Iniciando set_indexes_history_cache")

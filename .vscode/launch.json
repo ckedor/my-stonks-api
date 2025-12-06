@@ -7,7 +7,7 @@
       "request": "launch",
       "module": "uvicorn",
       "args": [
-        "app.main:app",
+        "app.main_fastapi:app",
         "--host", "127.0.0.1",
         "--port", "7000",
         "--reload"
@@ -26,7 +26,7 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "args": [
-        "-A", "app.worker.celery_app",
+        "-A", "app.main_celery.celery_app",
         "worker", 
         "-l", "info", "--pool=solo", 
         "--beat"

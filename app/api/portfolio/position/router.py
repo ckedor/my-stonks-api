@@ -3,8 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.api.asset.schemas import AssetDetailsWithPosition
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
-from app.infrastructure.db.session import get_session
+from app.infra.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.session import get_session
 from app.services.cache_service import CacheService
 from app.services.portfolio import portfolio_position_service as service
 from app.utils.response import df_response

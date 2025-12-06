@@ -1,10 +1,7 @@
 from typing import List
 
-from app.infrastructure.db.models.portfolio import (
-    CustomCategory,
-    CustomCategoryAssignment,
-)
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.models.portfolio import CustomCategory, CustomCategoryAssignment
+from app.infra.db.repositories.base_repository import DatabaseRepository
 
 
 async def save_custom_categories(session, categories) -> None:

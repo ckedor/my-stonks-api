@@ -1,11 +1,11 @@
-from app.infrastructure.db.models.asset import Asset, AssetType, Event
-from app.infrastructure.db.models.asset_fii import FIISegment
-from app.infrastructure.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
-from app.infrastructure.db.models.constants.asset_class import ASSET_CLASS
-from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
-from app.infrastructure.db.models.constants.currency import CURRENCY
-from app.infrastructure.db.models.portfolio import Transaction
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.models.asset import Asset, AssetType, Event
+from app.infra.db.models.asset_fii import FIISegment
+from app.infra.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
+from app.infra.db.models.constants.asset_class import ASSET_CLASS
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
+from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.portfolio import Transaction
+from app.infra.db.repositories.base_repository import DatabaseRepository
 
 
 async def list_assets(session):

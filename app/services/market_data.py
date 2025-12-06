@@ -6,11 +6,11 @@ import pandas as pd
 
 from app.config.logger import logger
 from app.domain.finance.returns import calculate_acc_returns_from_prices
-from app.infrastructure.db.models.constants.index import INDEX
-from app.infrastructure.db.models.market_data import Index, IndexHistory
-from app.infrastructure.db.repositories.base_repository import DatabaseRepository
-from app.infrastructure.db.repositories.market_data import MarketDataRepository
-from app.infrastructure.integrations.market_data_provider import MarketDataProvider
+from app.infra.db.models.constants.index import INDEX
+from app.infra.db.models.market_data import Index, IndexHistory
+from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.market_data import MarketDataRepository
+from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.services.cache_service import CacheService
 from app.utils.df import df_to_named_dict
 

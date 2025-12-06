@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.infrastructure.db.session import get_session
+from app.infra.db.session import get_session
 from app.services.portfolio import portfolio_income_tax_service as service
 
 router = APIRouter(tags=['Imposto de Renda'])

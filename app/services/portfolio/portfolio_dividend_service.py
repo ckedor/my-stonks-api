@@ -2,8 +2,8 @@ import pandas as pd
 from requests import session
 
 from app.api.portfolio.dividend.schema import DividendFilters
-from app.infrastructure.db.models.portfolio import Dividend
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.models.portfolio import Dividend
+from app.infra.db.repositories.portfolio import PortfolioRepository
 
 
 async def get_dividends(

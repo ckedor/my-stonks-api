@@ -8,7 +8,7 @@ from app.domain.income_tax.constants import (
     TAX_RATE_FII,
     TAX_RATE_STOCK,
 )
-from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
 
 
 class TaxIncomeCalculator:

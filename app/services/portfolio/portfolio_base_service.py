@@ -4,7 +4,7 @@ from app.api.portfolio.portfolio.schemas import (
     CreatePortfolioRequest,
     UpdatePortfolioRequest,
 )
-from app.infrastructure.db.models.portfolio import (
+from app.infra.db.models.portfolio import (
     CustomCategory,
     CustomCategoryAssignment,
     Dividend,
@@ -12,7 +12,7 @@ from app.infrastructure.db.models.portfolio import (
     Position,
     Transaction,
 )
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.repositories.portfolio import PortfolioRepository
 
 
 async def create_portfolio(session, portfolio: CreatePortfolioRequest, user_id: int):

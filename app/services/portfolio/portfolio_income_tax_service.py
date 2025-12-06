@@ -3,10 +3,10 @@ import pandas as pd
 from app.domain.finance.trade import profits_by_month_df
 from app.domain.income_tax.tax_income_calculator import TaxIncomeCalculator
 from app.domain.old.finance.position_calculator import PositionCalculator
-from app.infrastructure.db.models.asset import Event
-from app.infrastructure.db.models.constants.asset_type import ASSET_TYPE
-from app.infrastructure.db.models.constants.currency import CURRENCY
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.models.asset import Event
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
+from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.repositories.portfolio import PortfolioRepository
 from app.utils.response import df_response
 
 

@@ -6,9 +6,9 @@ from fastapi import HTTPException
 import app.services.market_data as market_data_service
 from app.api.asset.schemas import AssetDetailsOut, AssetDetailsWithPosition
 from app.domain.old.finance.returns_calculator import ReturnsCalculator
-from app.infrastructure.db.models.constants.currency import CURRENCY
-from app.infrastructure.db.models.portfolio import Position
-from app.infrastructure.db.repositories.portfolio import PortfolioRepository
+from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.portfolio import Position
+from app.infra.db.repositories.portfolio import PortfolioRepository
 from app.utils.df import df_to_named_dict
 from app.utils.response import df_response
 

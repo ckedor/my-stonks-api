@@ -6,7 +6,7 @@ from app.api.portfolio.portfolio.schemas import (
     Portfolio,
     UpdatePortfolioRequest,
 )
-from app.infrastructure.db.session import get_session
+from app.infra.db.session import get_session
 from app.users.models import User
 from app.users.views import current_active_user
 
