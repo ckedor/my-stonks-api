@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config.settings import settings
 from app.entrypoints.http.router import router as main_router
-from app.users.views import setup_user_views
+from app.modules.users.views import setup_user_views
 
 
 def create_app() -> FastAPI:

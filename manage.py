@@ -9,7 +9,7 @@ def main():
     command = sys.argv[1]
 
     if command == "create_superuser":
-        from app.users.scripts import create_superuser
+        from app.modules.users.scripts import create_superuser
 
         create_superuser.run()
 

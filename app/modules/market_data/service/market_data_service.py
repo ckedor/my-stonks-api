@@ -1,0 +1,184 @@
+# app/modules/market_data/service/market_data_service.py
+"""
+Market data service - handles market indexes, USD/BRL history, and asset quotes.
+"""
+
+from datetime import datetime
+from decimal import Decimal
+
+import pandas as pd
+
+from app.config.logger import logger
+from app.domain.finance.returns import calculate_acc_returns_from_prices
+from app.infra.db.models.constants.index import INDEX
+from app.infra.db.models.market_data import Index, IndexHistory
+from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.integrations.market_data_provider import MarketDataProvider
+from app.infra.redis.decorators import cached
+from app.infra.redis.redis_service import RedisService
+from app.modules.market_data.repositories.market_data_repository import (
+    MarketDataRepository,
+)
+from app.utils.df import df_to_named_dict
+
+
+class MarketDataService:
+    
+    def __init__(self, session):
+        self.session = session
+        self.repo = MarketDataRepository(session)
+        self.cache = RedisService()
+        self.market_data_provider = MarketDataProvider()
+    
+    async def list_indexes(self):
+        base_repo = DatabaseRepository(self.session)
+        indexes = await base_repo.get(Index)
+        return indexes
+
+    @cached(key_prefix="indexes_history", cache=lambda self: self.cache, ttl=3600)
+    async def get_indexes_history(self, start_date: pd.Timestamp = None) -> pd.DataFrame:
+        return await self.compute_indexes_history(start_date)
+
+    async def compute_indexes_history(self, start_date: pd.Timestamp = None):
+
+        start_date = start_date or pd.Timestamp(datetime.today()) - pd.DateOffset(years=5)
+        index_history_df = await self.repo.get_index_history_df(start_date)
+
+        index_history_returns_df = pd.DataFrame()
+
+        # Get USD/BRL for converting USD indexes to BRL
+        usdbrl_df = index_history_df[index_history_df['index_name'] == 'USD/BRL'].copy()
+        usdbrl_df['usdbrl'] = usdbrl_df['value'].astype(float)
+        usdbrl_df = usdbrl_df[['date', 'usdbrl']]
+
+        for index_name in index_history_df['index_name'].unique():
+            index_series = index_history_df[index_history_df['index_name'] == index_name].copy()
+            index_series.index = index_series['date']
+            index_series = index_series.drop(columns=['date'])
+            index_series[index_name] = index_series['value'].astype(float)
+            index_series = index_series.sort_index()
+
+            # Convert USD indexes to BRL
+            if index_name in {'NASDAQ', 'S&P500'}:
+                index_series = pd.merge(index_series, usdbrl_df, on='date', how='left')
+                index_series[index_name] *= index_series['usdbrl'].astype(float)
+                index_series.index = index_series['date']
+
+            index_series = index_series[[index_name]]
+
+            # Build cumulative index from percentage rates
+            if index_name in {'IPCA', 'CDI'}:
+                index_series = self._build_index_from_percent(index_series)
+
+            returns_df = calculate_acc_returns_from_prices(index_series)
+            if index_history_returns_df.empty:
+                index_history_returns_df = returns_df
+            else:
+                index_history_returns_df = index_history_returns_df.join(returns_df, how='outer')
+                
+        index_history_returns_df = index_history_returns_df.reset_index().rename(
+            columns={'index': 'date'}
+        )
+        
+        result = df_to_named_dict(index_history_returns_df)
+        return result
+
+    def _build_index_from_percent(self, series: pd.Series, base_value: float = 100.0) -> pd.Series:
+        pct_series = series.fillna(0) / 100
+        return base_value * (1 + pct_series).cumprod()
+
+    async def consolidate_market_indexes_history(self):
+        logger.info('Consolidando histórico de índices de mercado')
+        
+        indexes = await self.repo.get_all(Index, relations=['currency'])
+
+        for index in indexes:
+            try:
+                await self._consolidate_index(index)
+            except Exception as e:
+                logger.warning(f'Falha ao consolidar {index.symbol}: {e}')
+
+    async def _consolidate_index(self, index: Index):
+        most_recent = await self.repo.get(
+            IndexHistory,
+            by={'index_id': index.id},
+            order_by='date desc',
+            first=True,
+        )
+
+        init_date = most_recent.date - pd.DateOffset(days=10) if most_recent else None
+
+        history_df = self.market_data_provider.get_series_historical_data(
+            index, init_date=init_date
+        ).copy()
+
+        history_df = self._extend_indexes_to_today(history_df, index.id)
+        history_df['index_id'] = index.id
+        cols = [col for col in IndexHistory.COLUMNS if col in history_df.columns]
+        history_df = history_df[cols]
+
+        history = history_df.to_dict(orient='records')
+        await self.repo.upsert_bulk(IndexHistory, history, unique_columns=['index_id', 'date'])
+        await self.session.commit()
+        logger.info(f'{index.short_name} consolidado')
+
+    def _extend_indexes_to_today(self, history_df: pd.DataFrame, index_id) -> pd.DataFrame:
+        df = history_df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+        full_range = pd.DataFrame({
+            'date': pd.date_range(start=df['date'].min(), end=datetime.today(), freq='D')
+        })
+        df = pd.merge(full_range, df, on='date', how='left')
+
+        # For interest rates, missing days should be 0%
+        if index_id in {INDEX.IPCA, INDEX.CDI}:
+            df['close'] = df['close'].fillna(0)
+
+        df['close'] = df['close'].ffill()
+        return df
+
+    async def get_usd_brl_history(self, start_date=None, as_df=True) -> pd.DataFrame:
+        min_required_date = start_date or (pd.Timestamp.today() - pd.DateOffset(years=10))
+
+        usdbrl = await self.repo.get(
+            IndexHistory,
+            by={'index_id': INDEX.USDBRL, 'date__gte': min_required_date},
+        )
+        if not usdbrl:
+            raise ValueError('USD/BRL history not found')
+        
+        payload = [
+            {
+                "date": o.date.isoformat(),
+                "usdbrl": float(o.close) if isinstance(o.close, Decimal) else (float(o.close) if o.close is not None else None),
+            }
+            for o in usdbrl
+        ]
+
+        if as_df:
+            df = pd.DataFrame(payload)
+            df['date'] = pd.to_datetime(df['date'])
+            return df
+        return payload
+
+    async def get_asset_quotes(
+        self,
+        ticker: str,
+        asset_type: str | None = None,
+        exchange: str | None = None,
+        date: str = None,
+        start_date: str = None,
+        end_date: str = None,
+        treasury_type: str = None,
+        treasury_maturity_date: str = None
+    ):
+        return self.market_data_provider.get_asset_quotes(
+            ticker,
+            asset_type,
+            exchange,
+            date,
+            start_date,
+            end_date,
+            treasury_type=treasury_type,
+            treasury_maturity_date=treasury_maturity_date,
+        )

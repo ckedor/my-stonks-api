@@ -10,8 +10,8 @@ from alembic import command
 from alembic.config import Config
 from app.infra.db.base import Base
 from app.main import app
-from app.users.decorators import authenticated
-from app.users.models import User
+from app.modules.users.decorators import authenticated
+from app.modules.users.models import User
 
 # Força ambiente de teste
 os.environ['ENVIRONMENT'] = 'testing'

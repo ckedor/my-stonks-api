@@ -1,14 +1,26 @@
-def cached(ttl=60):
-    def decorator(func):
+import functools
+from typing import Any, Awaitable, Callable
+
+
+def cached(
+    key_prefix: str,
+    cache, 
+    ttl=3600,
+    ):
+    def decorator(func: Callable[..., Awaitable[Any]]):
+        @functools.wraps(func)
         async def wrapper(self, *args, **kwargs):
-            cache_key = f"{func.__name__}:{args}:{kwargs}"
-            cached_result = await self.redis.get(cache_key)
+            redis_client = cache(self)
+            
+            cache_key = f"{key_prefix}:{':'.join(map(str, args))}:{':'.join(f'{k}={v}' for k, v in kwargs.items())}"
+            cached_result = await redis_client.get_json(cache_key)
             if cached_result is not None:
                 return cached_result
-
+            
             result = await func(self, *args, **kwargs)
-            await self.redis.set(cache_key, result, ex=ttl)
+            await redis_client.set_json(cache_key, result, expire_seconds=ttl)
             return result
         return wrapper
     return decorator
+
     

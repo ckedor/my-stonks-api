@@ -3,7 +3,7 @@ from http import HTTPStatus
 import pytest
 
 from app.infra.db.models.portfolio import CustomCategory, Portfolio
-from app.users.models import User
+from app.modules.users.models import User
 
 
 @pytest.mark.asyncio

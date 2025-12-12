@@ -1,11 +1,9 @@
-# app/entrypoints/http/router.py
-
 from fastapi import APIRouter
 
-from app.api.asset.router import router as asset_router
-from app.api.brokers.router import router as brokers_router
-from app.api.market_data.router import router as market_data_router
-from app.api.portfolio.router import router as portfolio_router
+from app.modules.asset import router as asset_router
+from app.modules.brokers import router as brokers_router
+from app.modules.market_data import router as market_data_router
+from app.modules.portfolio import router as portfolio_router
 
 router = APIRouter()
 

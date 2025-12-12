@@ -1,3 +1,6 @@
+from typing import Any
+
+import numpy as np
 import pandas as pd
 
 
@@ -33,3 +36,22 @@ def extend_values_to_today(df: pd.DataFrame) -> pd.DataFrame:
     df = df.rename_axis("date").reset_index()
 
     return df
+
+
+def df_to_dict_list(df: pd.DataFrame) -> list[dict]:
+    def convert_value(val:  Any):
+            if isinstance(val, pd.Timestamp):
+                return val.isoformat()
+            if pd.isna(val) or val in {
+                float('inf'),
+                float('-inf'),
+                np.inf,
+                -np.inf,
+            }:
+                return None
+            return val
+
+    records = [
+        {k: convert_value(v) for k, v in row.items()} for row in df.to_dict(orient='records')
+    ]
+    return records

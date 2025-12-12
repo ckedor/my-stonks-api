@@ -1,8 +1,0 @@
-import app.worker.tasks.consolidate_all_portfolios
-import app.worker.tasks.consolidate_fiis_dividends
-import app.worker.tasks.consolidate_indexes_history
-import app.worker.tasks.consolidate_single_portfolio
-import app.worker.tasks.recalculate_asset_position
-import app.worker.tasks.set_indexes_history_cache
-import app.worker.tasks.set_patrimony_evolution_cache
-import app.worker.tasks.set_portfolio_returns_cache

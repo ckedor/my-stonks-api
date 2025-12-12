@@ -15,7 +15,7 @@ from app.config.settings import settings
 # 📥 Models
 from app.infra.db import models
 from app.infra.db.base import Base
-from app.users import models
+from app.modules.users import models
 
 # 🎯 Metadata para o autogenerate funcionar
 target_metadata = Base.metadata
