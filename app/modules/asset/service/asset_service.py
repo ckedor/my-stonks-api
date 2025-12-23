@@ -8,13 +8,13 @@ from app.infra.db.models.asset_fii import FIISegment
 from app.infra.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
 from app.infra.db.models.constants.currency import CURRENCY
 from app.infra.db.models.portfolio import Transaction
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
 class AssetService:
     def __init__(self, session):
         self.session = session
-        self.repo = DatabaseRepository(session)
+        self.repo = SQLAlchemyRepository(session)
 
     async def list_assets(self):
         assets = await self.repo.get(Asset)

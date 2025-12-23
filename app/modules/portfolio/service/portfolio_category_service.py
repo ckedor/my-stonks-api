@@ -6,13 +6,13 @@ Portfolio category service - handles custom category management.
 from typing import List
 
 from app.infra.db.models.portfolio import CustomCategory, CustomCategoryAssignment
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
 class PortfolioCategoryService:
     def __init__(self, session):
         self.session = session
-        self.repo = DatabaseRepository(session)
+        self.repo = SQLAlchemyRepository(session)
 
     async def save_custom_categories(self, categories) -> None:
         for cat in categories:

@@ -12,7 +12,7 @@ from app.config.logger import logger
 from app.domain.finance.returns import calculate_acc_returns_from_prices
 from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.market_data import Index, IndexHistory
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.infra.redis.decorators import cached
 from app.infra.redis.redis_service import RedisService
@@ -31,7 +31,7 @@ class MarketDataService:
         self.market_data_provider = MarketDataProvider()
     
     async def list_indexes(self):
-        base_repo = DatabaseRepository(self.session)
+        base_repo = SQLAlchemyRepository(self.session)
         indexes = await base_repo.get(Index)
         return indexes
 

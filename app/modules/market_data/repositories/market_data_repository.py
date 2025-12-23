@@ -7,10 +7,10 @@ import pandas as pd
 from sqlalchemy import select
 
 from app.infra.db.models.market_data import Index, IndexHistory
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
-class MarketDataRepository(DatabaseRepository):
+class MarketDataRepository(SQLAlchemyRepository):
     """Repository for market data operations"""
     
     async def get_index_history_df(

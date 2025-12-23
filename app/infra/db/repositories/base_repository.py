@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 ModelType = TypeVar('ModelType', bound=DeclarativeMeta)
 
 
-class DatabaseRepository:
+class SQLAlchemyRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 

@@ -19,7 +19,7 @@ from app.infra.db.models.portfolio import (
     Position,
     Transaction,
 )
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
 def get_custom_category_subquery(portfolio_id):
@@ -31,7 +31,7 @@ def get_custom_category_subquery(portfolio_id):
     )
 
 
-class PortfolioRepository(DatabaseRepository):
+class PortfolioRepository(SQLAlchemyRepository):
     async def get_asset_details(self, asset_id: int):
         stmt = (
             select(Asset)

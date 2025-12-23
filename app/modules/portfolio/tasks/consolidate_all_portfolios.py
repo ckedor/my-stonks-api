@@ -14,12 +14,12 @@ from app.modules.portfolio.tasks.set_portfolio_returns_cache import (
 @celery_async_task(name="consolidate_all_portfolios")
 async def consolidate_all_portfolios():
     from app.infra.db.models.portfolio import Portfolio
-    from app.infra.db.repositories.base_repository import DatabaseRepository
+    from app.infra.db.repositories.base_repository import SQLAlchemyRepository
     from app.infra.db.session import AsyncSessionLocal
     logger.info("🟢 consolidate_all_portfolios")
     try:
         async with AsyncSessionLocal() as session:
-            repo = DatabaseRepository(session)
+            repo = SQLAlchemyRepository(session)
             portfolios = await repo.get_all(Portfolio)
             for portfolio in portfolios:
                 run_task(consolidate_single_portfolio, portfolio.id)

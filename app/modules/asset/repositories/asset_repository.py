@@ -1,6 +1,6 @@
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
-class AssetRepository(DatabaseRepository):
+class AssetRepository(SQLAlchemyRepository):
     def __init__(self, session):
         super().__init__(session)

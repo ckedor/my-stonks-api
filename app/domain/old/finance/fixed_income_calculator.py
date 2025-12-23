@@ -10,12 +10,12 @@ from app.infra.db.models.constants.asset_fixed_income_type import (
 )
 from app.infra.db.models.market_data import IndexHistory
 from app.infra.db.models.portfolio import Dividend
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 
 
-## TODO: O FixedIncomeCalculator não deve depender do DatabaseRepository. Além disso deve ser movida a logica de negócio pra funcção pura em finanças
+## TODO: O FixedIncomeCalculator não deve depender do SQLAlchemyRepository. Além disso deve ser movida a logica de negócio pra funcção pura em finanças
 class FixedIncomeCalculator:
-    def __init__(self, repo: DatabaseRepository):
+    def __init__(self, repo: SQLAlchemyRepository):
         self.repo = repo
 
     async def calculate_asset_prices(

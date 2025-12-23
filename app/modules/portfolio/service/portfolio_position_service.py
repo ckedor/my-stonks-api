@@ -66,7 +66,7 @@ class PortfolioPositionService:
         total_aported.rename(columns={'amount': 'aported'}, inplace=True)
         return total_aported
 
-    @cached(key_prefix="patrimony_evolution", cache=lambda self: self.cache, ttl=3600)
+    #@cached(key_prefix="patrimony_evolution", cache=lambda self: self.cache, ttl=3600)
     async def get_patrimony_evolution(
         self, 
         portfolio_id: int,
@@ -113,7 +113,7 @@ class PortfolioPositionService:
         
         aported_history = await self.get_aported_history(portfolio_id)
         result = result.merge(aported_history[['date', 'aported']], on='date', how='left')
-        result['aported'] = (
+        result['acc_aported'] = (
             result['aported']
             .fillna(0)
             .cumsum()

@@ -22,7 +22,7 @@ from app.infra.db.models.portfolio import (
     Position,
     Transaction,
 )
-from app.infra.db.repositories.base_repository import DatabaseRepository
+from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.modules.market_data.service.market_data_service import MarketDataService
 from app.modules.portfolio.repositories import PortfolioRepository
@@ -134,7 +134,7 @@ class PortfolioConsolidatorService:
 
     async def _get_prices(self, asset_transactions_df, asset, portfolio_id):
         init_date = asset_transactions_df['date'].min()
-        db_repo = DatabaseRepository(self.session)
+        db_repo = SQLAlchemyRepository(self.session)
         fixed_income_calculator = FixedIncomeCalculator(db_repo)
         market_data_provider = MarketDataProvider()
         if self._is_fixed_income(asset):
