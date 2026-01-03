@@ -72,26 +72,23 @@ class PortfolioPositionService:
         portfolio_id: int,
         asset_id: int = None, 
         asset_type_id: int = None,
-        asset_type_ids: list = None, 
-        currency_id: int = None
+        asset_type_ids: list = None,
     ) -> pd.DataFrame:
         return await self.compute_patrimony_evolution(
-            portfolio_id, asset_id, asset_type_id, asset_type_ids, currency_id
+            portfolio_id, asset_id, asset_type_id, asset_type_ids,
         )
         
     async def compute_patrimony_evolution(
         self, portfolio_id: int,
         asset_id: int = None, 
         asset_type_id: int = None,
-        asset_type_ids: list = None, 
-        currency_id: int = None
+        asset_type_ids: list = None,
     ) -> pd.DataFrame:
         portfolio_position_df = await self.repo.get_portfolio_position_df(
             portfolio_id, 
             asset_id=asset_id, 
             asset_type_id=asset_type_id, 
-            asset_type_ids=asset_type_ids, 
-            currency_id=currency_id
+            asset_type_ids=asset_type_ids,
         )
 
         if portfolio_position_df.empty:
@@ -121,7 +118,6 @@ class PortfolioPositionService:
         
         return df_to_dict_list(result)
 
-    @cached(key_prefix="portfolio_returns", cache=lambda self: self.cache, ttl=3600)
     async def get_portfolio_returns(self, portfolio_id: int):
         return await self.compute_portfolio_returns(portfolio_id)
     

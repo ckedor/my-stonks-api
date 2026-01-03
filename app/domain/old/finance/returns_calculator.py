@@ -43,16 +43,34 @@ class ReturnsCalculator:
         return grouped.drop(columns='weighted_return')
 
     @staticmethod
-    def _calculate_category_return(df):
+    def _calculate_category_return(df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
+        df['date'] = pd.to_datetime(df['date'])
+        df = df.sort_values(['asset_id', 'date'])
 
-        df['category_total_value'] = df.groupby(['date', 'category'])['value'].transform('sum')
-        df['category_weight'] = df['value'] / df['category_total_value']
+        # Garanta que estes campos existem (no seu pipeline eles já existem)
+        # value = quantity * price
+        # contribution = diff(quantity) * price
+        # asset_return = pct_change(price) + dividend/base_valor
+
+        df['base_value'] = (df['value'] - df['contribution']).replace(0, pd.NA)
+
+        # Peso do início do período: valor pré-fluxo de t-1
+        df['base_value_prev'] = df.groupby('asset_id')['base_value'].shift(1)
+
+        # Total da categoria no início do período (t-1)
+        df['category_base_prev_total'] = df.groupby(['date', 'category'])['base_value_prev'].transform('sum')
+
+        # Se a categoria ainda não existia em t-1 (NaN/0), evita divisão por zero
+        df['category_weight'] = df['base_value_prev'] / df['category_base_prev_total'].replace(0, pd.NA)
+        df['category_weight'] = df['category_weight'].fillna(0)
+
         df['category_weighted_return'] = df['category_weight'] * df['asset_return']
 
-        grouped = df.groupby(['date', 'category'])['category_weighted_return'].sum().reset_index()
-        pivot = grouped.pivot(index='date', columns='category', values='category_weighted_return')
-        cumulative = (1 + pivot.fillna(0)).cumprod() - 1
+        daily = df.groupby(['date', 'category'])['category_weighted_return'].sum().reset_index()
+        pivot = daily.pivot(index='date', columns='category', values='category_weighted_return').fillna(0)
+
+        cumulative = (1 + pivot).cumprod() - 1
         return cumulative.reset_index()
 
     @staticmethod

@@ -203,8 +203,7 @@ class PortfolioRepository(SQLAlchemyRepository):
         end_date=None, 
         asset_id=None, 
         asset_type_id=None, 
-        asset_type_ids=None, 
-        currency_id=None,
+        asset_type_ids=None,
         asset_ids: Optional[List[int]] = None
     ) -> pd.DataFrame:
         dividend_subquery = (
@@ -391,3 +390,101 @@ class PortfolioRepository(SQLAlchemyRepository):
         )
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all() if row[0] is not None]
+
+    async def get_complete_portfolio_position_history_df(
+        self,
+        portfolio_id: int,
+        asset_ids: Optional[List[int]] = None,
+    ) -> pd.DataFrame:
+        div_q = (
+            select(
+                Dividend.asset_id.label("asset_id"),
+                Dividend.portfolio_id.label("portfolio_id"),
+                Dividend.date.label("date"),
+                func.sum(Dividend.amount).label("dividend_amount"),
+            )
+            .where(Dividend.portfolio_id == portfolio_id)
+            .group_by(Dividend.asset_id, Dividend.portfolio_id, Dividend.date)
+        )
+        if asset_ids:
+            div_q = div_q.where(Dividend.asset_id.in_(asset_ids))
+        divs = div_q.subquery("divs")
+        
+        tx_q = (
+            select(
+                Transaction.asset_id.label("asset_id"),
+                Transaction.portfolio_id.label("portfolio_id"),
+                Transaction.date.label("date"),
+                func.sum(Transaction.quantity).label("transaction_quantity"),
+            )
+            .where(Transaction.portfolio_id == portfolio_id)
+            .group_by(Transaction.asset_id, Transaction.portfolio_id, Transaction.date)
+        )
+        if asset_ids:
+            tx_q = tx_q.where(Transaction.asset_id.in_(asset_ids))
+        txs = tx_q.subquery("txs")
+
+        cats = get_custom_category_subquery(portfolio_id)
+
+
+        stmt = (
+            select(
+                Position.date,
+                Position.portfolio_id,
+                Position.asset_id,
+                Position.quantity,
+
+                Position.price,
+                Position.average_price,
+                Position.daily_return,
+                Position.acc_return,
+                Position.twelve_months_return,
+
+                Position.price_usd,
+                Position.average_price_usd,
+                Position.daily_return_usd,
+                Position.acc_return_usd,
+                Position.twelve_months_return_usd,
+
+                Asset.ticker.label("ticker"),
+                func.coalesce(divs.c.dividend_amount, 0).label("dividend_amount"),
+                func.coalesce(txs.c.transaction_quantity, 0).label("transaction_quantity"),
+                cats.c.category.label("category"),
+            )
+            .join(Asset, Asset.id == Position.asset_id)
+            .outerjoin(
+                divs,
+                and_(
+                    divs.c.portfolio_id == Position.portfolio_id,
+                    divs.c.asset_id == Position.asset_id,
+                    divs.c.date == Position.date,
+                ),
+            )
+            .outerjoin(
+                txs,
+                and_(
+                    txs.c.portfolio_id == Position.portfolio_id,
+                    txs.c.asset_id == Position.asset_id,
+                    txs.c.date == Position.date,
+                ),
+            )
+            .outerjoin(
+                cats,
+                cats.c.asset_id == Position.asset_id,
+            )
+            .where(Position.portfolio_id == portfolio_id)
+            .order_by(Position.date, Position.asset_id)
+        )
+
+        if asset_ids:
+            stmt = stmt.where(Position.asset_id.in_(asset_ids))
+
+        result = await self.session.execute(stmt)
+
+        df = pd.DataFrame(result.mappings().all())
+
+        if not df.empty:
+            df["date"] = pd.to_datetime(df["date"])
+
+        return df
+

@@ -3,13 +3,10 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.infra.db.session import get_session
-from app.infra.redis.redis_service import RedisService
 from app.modules.asset.api.schemas import AssetDetailsWithPosition
-from app.modules.portfolio.repositories import PortfolioRepository
 from app.modules.portfolio.service.portfolio_position_service import (
     PortfolioPositionService,
 )
-from app.utils.response import df_response
 
 router = APIRouter(tags=['Portfolio Position'])
 
@@ -19,11 +16,6 @@ async def get_portfolio_returns(
     portfolio_id: int,
     session = Depends(get_session)
 ):
-    cache = RedisService()
-    cached = await cache.get_json(f'portfolio:{portfolio_id}:returns')
-    if cached:
-        return cached
-
     service = PortfolioPositionService(session)
     returns = await service.get_portfolio_returns(portfolio_id)
     return returns
@@ -66,11 +58,10 @@ async def get_patrimony_evolution(
     asset_id: int = Query(None),
     asset_type_id: int = Query(None),
     asset_type_ids: Optional[List[int]] = Query(None),
-    currency_id: Optional[int] = Query(None),
     session = Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    evolution = await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids, currency_id)
+    evolution = await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids)
     return evolution
 
 

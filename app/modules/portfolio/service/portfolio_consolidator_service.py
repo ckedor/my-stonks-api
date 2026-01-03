@@ -229,7 +229,7 @@ class PortfolioConsolidatorService:
         acc_map_brl = position_df.set_index('date')['acc_return']
         position_df['acc_return_12m_ago'] = position_df['date_12m_ago'].map(acc_map_brl)
         position_df['twelve_months_return'] = (
-            position_df['acc_return'] - position_df['acc_return_12m_ago']
+            (1 + position_df['acc_return']) / (1 + position_df['acc_return_12m_ago']) - 1
         )
 
         # USD
@@ -241,7 +241,7 @@ class PortfolioConsolidatorService:
         acc_map_usd = position_df.set_index('date')['acc_return_usd']
         position_df['acc_return_usd_12m_ago'] = position_df['date_12m_ago'].map(acc_map_usd)
         position_df['twelve_months_return_usd'] = (
-            position_df['acc_return_usd'] - position_df['acc_return_usd_12m_ago']
+            (1 + position_df['acc_return_usd']) / (1 + position_df['acc_return_usd_12m_ago']) - 1
         )
 
         return position_df
