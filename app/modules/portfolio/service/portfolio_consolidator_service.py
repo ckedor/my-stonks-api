@@ -73,6 +73,19 @@ class PortfolioConsolidatorService:
 
             prices_df = await self._get_prices(transactions_df, asset, portfolio_id)
             
+            # PATCH rápido e local
+            if asset_id == 19:
+                prices_df["date"] = pd.to_datetime(prices_df["date"])
+
+                bad_window = prices_df["date"].between("2026-01-13", "2026-01-18", inclusive="both")
+
+                # considera inválido preço < 10 (caso XPML11)
+                for col in ("price", "price_usd"):
+                    if col in prices_df.columns:
+                        prices_df.loc[bad_window & (prices_df[col] < 10), col] = pd.NA
+                        prices_df[col] = prices_df[col].ffill()
+            
+            
             start_date = transactions_df['date'].min()
             end_date = prices_df['date'].max()
             full_dates = pd.DataFrame({'date': pd.date_range(start=start_date, end=end_date)})
@@ -176,7 +189,6 @@ class PortfolioConsolidatorService:
                 position_df.loc[:, col] = position_df[col].ffill()
         position_df = position_df[position_df['date'] >= min_date]
         
-        position_df = position_df[position_df['quantity'] != 0]
         values = position_df.to_dict(orient='records')
 
         max_date = position_df['date'].max()

@@ -48,20 +48,12 @@ class ReturnsCalculator:
         df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values(['asset_id', 'date'])
 
-        # Garanta que estes campos existem (no seu pipeline eles já existem)
-        # value = quantity * price
-        # contribution = diff(quantity) * price
-        # asset_return = pct_change(price) + dividend/base_valor
-
         df['base_value'] = (df['value'] - df['contribution']).replace(0, pd.NA)
 
-        # Peso do início do período: valor pré-fluxo de t-1
         df['base_value_prev'] = df.groupby('asset_id')['base_value'].shift(1)
 
-        # Total da categoria no início do período (t-1)
         df['category_base_prev_total'] = df.groupby(['date', 'category'])['base_value_prev'].transform('sum')
 
-        # Se a categoria ainda não existia em t-1 (NaN/0), evita divisão por zero
         df['category_weight'] = df['base_value_prev'] / df['category_base_prev_total'].replace(0, pd.NA)
         df['category_weight'] = df['category_weight'].fillna(0)
 
