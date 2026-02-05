@@ -1,3 +1,7 @@
+# app/infra/integrations/market_data_provider.py
+import asyncio
+import time
+
 import pandas as pd
 
 from app.config.logger import logger
@@ -17,10 +21,6 @@ from .crypto_compare_client import CryptoCompareClient
 from .mais_retorno_client import MaisRetornoClient
 from .status_invest_client import StatusInvestClient
 from .tesouro_client import TesouroClient
-
-# from app.infra.integrations.foxbit_client import FoxbitClient
-# from app.infra.integrations.status_invest_client import StatusInvestClient
-# from app.infra.integrations.tesouro_client import TesouroClient
 
 STATUSINVEST_TO_INTERNAL_SEGMENT = {
     'Shoppings': FIISegment.SHOPPING,
@@ -46,6 +46,7 @@ STATUSINVEST_TO_INTERNAL_SEGMENT = {
     'Tecidos. Vestuário e Calçados': FIISegment.SHOPPING,
 }
 
+
 class MarketDataProvider:
     def __init__(self):
         self.brapi_client = BrapiClient()
@@ -54,40 +55,43 @@ class MarketDataProvider:
         self.mais_retorno_client = MaisRetornoClient()
         self.crypto_compare_client = CryptoCompareClient()
         self.status_invest_client = StatusInvestClient()
-        # self.foxbit_client = FoxbitClient()
-        # self.anbima_client = AnbimaClient()
         self.tesouro_client = TesouroClient()
 
-    def get_series_historical_data(
+    async def get_series_historical_data(
         self, index: Index, init_date: pd.Timestamp = None
     ) -> pd.DataFrame:
         """
         Use: get asset prices and market indexes
         """
+        start = time.perf_counter()
         history_df = None
 
         if index.id == INDEX.USDBRL:
-            history_df = self.bcb_api_client.get_usd_brl_quotation(init_date=init_date)
+            history_df = await self.bcb_api_client.get_usd_brl_quotation(init_date=init_date)
             history_df.rename(columns={'value': 'close'}, inplace=True)
 
         elif index.id in {INDEX.CDI, INDEX.IPCA}:
-            history_df = self.bcb_api_client.get_market_index_history_df(
+            history_df = await self.bcb_api_client.get_market_index_history_df(
                 index.symbol, init_date=init_date
             )
             history_df.rename(columns={'value': 'close'}, inplace=True)
 
         elif index.id == INDEX.IFIX:
-            history_df = self.alphavantage_client.get_price_history_df(index.symbol)
+            history_df = await self.alphavantage_client.get_price_history_df(index.symbol)
 
         else:
-            history_df = self.brapi_client.get_price_history_df(
+            history_df = await self.brapi_client.get_price_history_df(
                 index.symbol, init_date=init_date, interval='1d'
             )
 
+        elapsed = time.perf_counter() - start
+        logger.info(f'[TIMING] get_series_historical_data({index.symbol}): {elapsed:.2f}s')
         return history_df
 
-    def get_asset_prices(self, asset: Asset, init_date) -> pd.DataFrame:
+    async def get_asset_prices(self, asset: Asset, init_date) -> pd.DataFrame:
+        start = time.perf_counter()
         prices_df = pd.DataFrame()
+        source = 'unknown'
 
         if asset.asset_type_id in {
             ASSET_TYPE.ETF,
@@ -95,33 +99,39 @@ class MarketDataProvider:
             ASSET_TYPE.FII,
             ASSET_TYPE.BDR,
         }:
-            prices_df = self.brapi_client.get_price_history_df(
+            source = 'brapi'
+            prices_df = await self.brapi_client.get_price_history_df(
                 asset.ticker, init_date=init_date, interval='1d'
             )
 
             if prices_df.empty or prices_df['date'].min() > init_date:
-                prices_df = self.alphavantage_client.get_price_history_df(asset.ticker)
+                source = 'alphavantage'
+                prices_df = await self.alphavantage_client.get_price_history_df(asset.ticker)
 
         elif asset.asset_type.id == ASSET_TYPE.PREV:
+            source = 'mais_retorno'
             fund_legal_id = extract_digits(asset.fund.legal_id)
-            prices_df = self.mais_retorno_client.get_fund_price_history_df(fund_legal_id, init_date)
+            prices_df = await self.mais_retorno_client.get_fund_price_history_df(fund_legal_id, init_date)
 
         elif asset.asset_type.id == ASSET_TYPE.CRIPTO:
-            prices_df = self.crypto_compare_client.get_crypto_price_history_df(
+            source = 'crypto_compare'
+            prices_df = await self.crypto_compare_client.get_crypto_price_history_df(
                 asset.ticker, init_date=init_date
             )
 
         elif asset.asset_type.id == ASSET_TYPE.TREASURY:
+            source = 'tesouro'
             maturity_date = asset.treasury_bond.maturity_date
             type_name = asset.treasury_bond.type.name
-            prices_df = self.tesouro_client.get_precos_tesouro(type_name, maturity_date)
+            prices_df = await self.tesouro_client.get_precos_tesouro(type_name, maturity_date)
 
+        elapsed = time.perf_counter() - start
+        logger.info(f'[TIMING] get_asset_prices({asset.ticker}, source={source}): {elapsed:.2f}s')
         return prices_df
 
-
-    def get_all_fiis_df(self):
+    async def get_all_fiis_df(self):
         try:
-            fiis_df = self.status_invest_client.get_fiis_df()
+            fiis_df = await self.status_invest_client.get_fiis_df()
             fiis_df['segment_id'] = fiis_df['segment'].map(
                 lambda seg: STATUSINVEST_TO_INTERNAL_SEGMENT.get(seg, FIISegment.OTHERS).value
             )
@@ -131,19 +141,23 @@ class MarketDataProvider:
         except Exception as e:
             logger.error(f'Falha ao obter FIIs do Status Invest: {e}')
             raise e
-        
-    def get_fii_dividends_df(self, tickers: list, max: bool = True):
-        provents_df = pd.DataFrame()
-        for ticker in tickers:
+
+    async def get_fii_dividends_df(self, tickers: list, max: bool = True):
+        """Busca dividendos de FIIs em paralelo."""
+        async def fetch_provents(ticker):
             try:
-                fii_provents_df = self.status_invest_client.get_provents_df(ticker, max=max)
-                provents_df = pd.concat([provents_df, fii_provents_df])
+                return await self.status_invest_client.get_provents_df(ticker, max=max)
             except Exception as e:
                 logger.error(f'Falha ao obter dividendos do FII {ticker}: {e}')
                 raise e
+
+        tasks = [fetch_provents(ticker) for ticker in tickers]
+        results = await asyncio.gather(*tasks)
+        
+        provents_df = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
         return provents_df
-    
-    def get_asset_quotes(
+
+    async def get_asset_quotes(
         self,
         ticker: str,
         asset_type: str | None = None,
@@ -153,10 +167,12 @@ class MarketDataProvider:
         end_date: str = None,
         treasury_maturity_date: str = None,
         treasury_type: str = None,
-    ) -> float | None:
+    ) -> dict:
         if date:
             start_date = pd.to_datetime(date)
             end_date = pd.to_datetime(date)
+
+        history = {}
         
         if asset_type in {
             ASSET_TYPE.ETF.name,
@@ -164,44 +180,55 @@ class MarketDataProvider:
             ASSET_TYPE.FII.name,
             ASSET_TYPE.BDR.name,
         }:
-            history = self.brapi_client.get_quotes(
+            history = await self.brapi_client.get_quotes(
                 ticker,
                 start_date,
                 end_date,
                 interval='1d',
             )
             if not history['quotes']:
-                ticker += '.SA' if exchange == EXCHANGE.B3 else ''
-                history = self.alphavantage_client.get_quotes(
-                    ticker,
+                ticker_with_suffix = ticker + '.SA' if exchange == EXCHANGE.B3 else ticker
+                history = await self.alphavantage_client.get_quotes(
+                    ticker_with_suffix,
                     init_date=start_date,
                     end_date=end_date,
                 )
-            
+
         elif asset_type == ASSET_TYPE.CRIPTO.name:
-            history = self.crypto_compare_client.get_quotes(
+            history = await self.crypto_compare_client.get_quotes(
                 ticker,
                 start_date=start_date,
                 end_date=end_date,
             )
-        
+
         elif asset_type == ASSET_TYPE.PREV.name:
-            history = self.mais_retorno_client.get_quotes(
+            history = await self.mais_retorno_client.get_quotes(
                 extract_digits(ticker),
                 start_date=start_date,
             )
-        
+
         elif asset_type == ASSET_TYPE.TREASURY.name:
-            history = self.tesouro_client.get_quotes(
+            history = await self.tesouro_client.get_quotes(
                 treasury_type,
                 pd.to_datetime(treasury_maturity_date),
                 start_date=start_date,
                 end_date=end_date,
             )
-             
+
         return {
             'ticker': ticker,
             'asset_type': asset_type,
             'currency': history.get('currency'),
             'quotes': history.get('quotes', []),
         }
+
+    async def close(self):
+        """Close all HTTP clients."""
+        await asyncio.gather(
+            self.brapi_client.close(),
+            self.bcb_api_client.close(),
+            self.mais_retorno_client.close(),
+            self.crypto_compare_client.close(),
+            self.status_invest_client.close(),
+            self.tesouro_client.close(),
+        )

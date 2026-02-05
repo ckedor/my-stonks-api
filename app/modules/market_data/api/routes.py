@@ -14,6 +14,7 @@ from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.exchange import EXCHANGE
 from app.infra.db.session import get_session
 from app.modules.market_data.api.schemas import (
+    Currency,
     MarketIndex,
     MarketIndexesTimeSeries,
     QuoteResponse,
@@ -31,6 +32,15 @@ router = APIRouter(
     tags=['Market Data'],
     dependencies=[Depends(current_active_user)]
 )
+
+
+@router.get('/currency', response_model=List[Currency])
+async def list_currencies(
+    session=Depends(get_session),
+):
+    """List all available currencies"""
+    service = MarketDataService(session)
+    return await service.list_currencies()
 
 
 @router.get('/indexes', response_model=List[MarketIndex])

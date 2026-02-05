@@ -1,7 +1,9 @@
+from datetime import date as date_type
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pandas as pd
-from sqlalchemy import and_, func, select
+from sqlalchemy import Date, and_, cast, func, literal, select
 from sqlalchemy.orm import joinedload
 
 from app.infra.db.models.asset import Asset, AssetClass, AssetType, Currency
@@ -32,6 +34,115 @@ def get_custom_category_subquery(portfolio_id):
 
 
 class PortfolioRepository(SQLAlchemyRepository):
+    async def get_position_on_date_by_broker(
+        self,
+        portfolio_id: int,
+        date: date_type | datetime | None = None,
+        asset_type_id: int | None = None,
+    ) -> pd.DataFrame:
+        """
+        Retorna a posição do portfólio agrupada por corretora (broker),
+        somando as quantities das transactions até a data (ignorando horário).
+        """
+        if date is None:
+            search_date = await self._get_portfolio_position_latest_date(portfolio_id)
+        else:
+            search_date = date
+
+        if isinstance(search_date, datetime):
+            search_date = search_date.date()
+
+        end_exclusive = search_date + timedelta(days=1)
+
+        cat_assignment_subq = get_custom_category_subquery(portfolio_id)
+
+        txn_subq = (
+            select(
+                Transaction.asset_id,
+                Transaction.broker_id,
+                func.sum(Transaction.quantity).label("quantity"),
+            )
+            .where(Transaction.portfolio_id == portfolio_id)
+            .where(Transaction.date < end_exclusive)
+            .group_by(Transaction.asset_id, Transaction.broker_id)
+            .having(func.sum(Transaction.quantity) != 0)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                cast(literal(search_date), Date).label("date"),
+                txn_subq.c.asset_id,
+                Asset.ticker,
+                Asset.name,
+                Asset.currency_id,
+                txn_subq.c.quantity,
+                Position.price,
+                Position.twelve_months_return,
+                Position.acc_return,
+                Position.daily_return,
+                Dividend.amount.label("dividend"),
+                cat_assignment_subq.c.category,
+                AssetType.short_name.label("type"),
+                AssetType.id.label("type_id"),
+                AssetClass.name.label("class"),
+                Broker.id.label("broker_id"),
+                Broker.name.label("broker_name"),
+            )
+            .join(Asset, Asset.id == txn_subq.c.asset_id)
+            .join(Broker, Broker.id == txn_subq.c.broker_id)
+            .join(AssetType, Asset.asset_type_id == AssetType.id)
+            .join(AssetClass, AssetType.asset_class_id == AssetClass.id)
+            .outerjoin(cat_assignment_subq, cat_assignment_subq.c.asset_id == Asset.id)
+            .join(
+                Position,
+                and_(
+                    Position.portfolio_id == portfolio_id,
+                    Position.asset_id == txn_subq.c.asset_id,
+                    Position.date == search_date,
+                ),
+            )
+            .outerjoin(
+                Dividend,
+                and_(
+                    Dividend.asset_id == txn_subq.c.asset_id,
+                    Dividend.date == search_date,
+                    Dividend.portfolio_id == portfolio_id,
+                ),
+            )
+        )
+
+        if asset_type_id is not None:
+            stmt = stmt.where(Asset.asset_type_id == asset_type_id)
+
+        result = await self.session.execute(stmt)
+        rows = result.all()
+
+        df = pd.DataFrame(
+            rows,
+            columns=[
+                "date",
+                "asset_id",
+                "ticker",
+                "name",
+                "currency_id",
+                "quantity",
+                "price",
+                "twelve_months_return",
+                "acc_return",
+                "daily_return",
+                "dividend",
+                "category",
+                "type",
+                "type_id",
+                "class",
+                "broker_id",
+                "broker_name",
+            ],
+        )
+        df["date"] = pd.to_datetime(df["date"])
+        return df
+        
     async def get_asset_details(self, asset_id: int):
         stmt = (
             select(Asset)

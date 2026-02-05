@@ -3,6 +3,8 @@
 Portfolio consolidator service - handles position consolidation and recalculation.
 """
 
+import asyncio
+import time
 from datetime import datetime
 
 import numpy as np
@@ -23,6 +25,7 @@ from app.infra.db.models.portfolio import (
     Transaction,
 )
 from app.infra.db.repositories.base_repository import SQLAlchemyRepository
+from app.infra.db.session import AsyncSessionLocal
 from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.modules.market_data.service.market_data_service import MarketDataService
 from app.modules.portfolio.repositories import PortfolioRepository
@@ -51,13 +54,33 @@ class PortfolioConsolidatorService:
 
         recent_date = positions_df['date'].max() - pd.DateOffset(days=10)
         asset_ids = positions_df[positions_df['date'] >= recent_date]['asset_id'].unique().tolist()
-        for asset_id in asset_ids:
-            await self.recalculate_position_asset(portfolio_id, asset_id)
+        
+        # Executa em paralelo com sessões independentes
+        tasks = [
+            self._recalculate_position_asset_with_session(portfolio_id, asset_id)
+            for asset_id in asset_ids
+        ]
+        await asyncio.gather(*tasks)
+
+    async def _recalculate_position_asset_with_session(self, portfolio_id: int, asset_id: int):
+        """Recalcula posição de um ativo criando sua própria sessão de banco."""
+        async with AsyncSessionLocal() as session:
+            try:
+                service = PortfolioConsolidatorService(session)
+                await service.recalculate_position_asset(portfolio_id, asset_id)
+            except Exception as e:
+                logger.error(f'Falha ao recalcular ativo {asset_id} do portfolio {portfolio_id}: {e}')
 
     async def recalculate_position_asset(self, portfolio_id, asset_id):
         try:
+            total_start = time.perf_counter()
+            
             asset = await self.repo.get(Asset, asset_id, first=True, relations=["treasury_bond", "fixed_income"]) #TODO: eu preciso fazer o select in load do trasury_bond. Mas aqui não faz mt sentido. Repensar.
+            
+            t0 = time.perf_counter()
             transactions_df = await self._get_transactions(portfolio_id, asset_id)
+            logger.info(f'[TIMING] _get_transactions({asset.ticker}): {time.perf_counter() - t0:.2f}s')
+            
             if transactions_df.empty:
                 
                 await self.repo.delete(
@@ -71,7 +94,9 @@ class PortfolioConsolidatorService:
                     mask = transactions_df['date'] < pd.to_datetime(event.date)
                     transactions_df.loc[mask, 'quantity'] *= event.factor
 
+            t1 = time.perf_counter()
             prices_df = await self._get_prices(transactions_df, asset, portfolio_id)
+            logger.info(f'[TIMING] _get_prices({asset.ticker}): {time.perf_counter() - t1:.2f}s')
             
             # PATCH rápido e local
             if asset_id == 19:
@@ -99,8 +124,12 @@ class PortfolioConsolidatorService:
             
             self._calculate_returns(position_df)
             
+            t2 = time.perf_counter()
             await self._persist_positions_db(position_df, transactions_df['date'].min(), asset, portfolio_id)
-            logger.info(f'Sucesso ao consolidar ativo: {asset.ticker}')
+            logger.info(f'[TIMING] _persist_positions_db({asset.ticker}): {time.perf_counter() - t2:.2f}s')
+            
+            total_elapsed = time.perf_counter() - total_start
+            logger.info(f'[TIMING] recalculate_position_asset({asset.ticker}) TOTAL: {total_elapsed:.2f}s')
         except Exception as e:
             logger.error(f'Falha ao calcular posições para {asset.ticker}: {e}')
 
@@ -156,7 +185,7 @@ class PortfolioConsolidatorService:
             )
             prices_df['currency'] = CURRENCY.BRL
         else:
-            prices_df = market_data_provider.get_asset_prices(asset, init_date)
+            prices_df = await market_data_provider.get_asset_prices(asset, init_date)
             prices_df = self._extend_value_to_today(prices_df, 'close')
             prices_df = prices_df[['date', 'close', 'currency']]
             prices_df['currency'] = prices_df['currency'].map(CURRENCY_MAP)
@@ -217,8 +246,13 @@ class PortfolioConsolidatorService:
             )
 
         asset_ids = transactions_df['asset_id'].unique().tolist()
-        for asset_id in asset_ids:
-            await self.recalculate_position_asset(portfolio_id, asset_id)
+        
+        # Executa em paralelo com sessões independentes
+        tasks = [
+            self._recalculate_position_asset_with_session(portfolio_id, asset_id)
+            for asset_id in asset_ids
+        ]
+        await asyncio.gather(*tasks)
 
     @staticmethod
     def _is_fixed_income(asset):
@@ -293,7 +327,7 @@ class PortfolioConsolidatorService:
             return
         
         market_data_provider = MarketDataProvider()
-        fii_dividends_df = market_data_provider.get_fii_dividends_df(
+        fii_dividends_df = await market_data_provider.get_fii_dividends_df(
             positions_df['ticker'].unique().tolist()
         )
         

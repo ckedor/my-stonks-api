@@ -160,9 +160,22 @@ class PortfolioPositionService:
         returns_df = returns_calculator.calculate_asset_returns(asset_position_df)
         return df_response(returns_df)
 
-    async def get_portfolio_position(self, portfolio_id: int, date: pd.Timestamp = None, asset_type_id = None) -> list:
-        pos_df = await self.repo.get_position_on_date(portfolio_id, date, asset_type_id)
-
+    async def get_portfolio_position(
+        self, 
+        portfolio_id: int,
+        date: pd.Timestamp = None,
+        asset_type_id = None,
+        group_by_broker: bool = False,
+        ) -> list:
+        if group_by_broker:
+            pos_df = await self.repo.get_position_on_date_by_broker(
+                portfolio_id, date, asset_type_id
+            )
+        else:
+            pos_df = await self.repo.get_position_on_date(
+                portfolio_id, date, asset_type_id
+            )
+        
         if pos_df is None or pos_df.empty:
             return []
 

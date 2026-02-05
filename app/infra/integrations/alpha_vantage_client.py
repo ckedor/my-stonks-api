@@ -1,3 +1,6 @@
+# app/infra/integrations/alpha_vantage_client.py
+import asyncio
+
 import pandas as pd
 from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
@@ -6,10 +9,17 @@ from app.config.settings import settings
 
 
 class AlphaVantageClient:
+    """
+    AlphaVantage client wrapper.
+    Uses asyncio.to_thread to run synchronous alpha_vantage library calls 
+    without blocking the event loop.
+    """
+    
     def __init__(self):
         self.alpha_vantage_key = settings.ALPHAVANTAGE_KEY
 
-    def get_price_history_df(self, symbol):
+    def _get_price_history_df_sync(self, symbol):
+        """Synchronous version - called via to_thread."""
         try:
             ts = TimeSeries(key=self.alpha_vantage_key)
             data, metadata = ts.get_daily(symbol=symbol, outputsize='full')
@@ -31,38 +41,43 @@ class AlphaVantageClient:
                 df['currency'] = 'BRL'
             else:
                 df['currency'] = 'USD'
-                
+
             df = df.set_index('date').asfreq('D').reset_index()
             df[['open', 'high', 'low', 'close']] = df[
                 ['open', 'high', 'low', 'close']
-            ].fillna(method='ffill')
+            ].ffill()
 
             return df[['date', 'open', 'high', 'low', 'close', 'currency']]
 
         except Exception as e:
             print('AlphaVantage: Erro ao buscar dados históricos: ', str(e))
             raise e
-        
-    def get_quotes(
-        self, 
-        symbol: str, 
-        init_date = None, 
-        end_date = None,
-        ) -> pd.DataFrame:
-        df = self.get_price_history_df(symbol)
+
+    async def get_price_history_df(self, symbol):
+        """Async wrapper using to_thread to avoid blocking."""
+        return await asyncio.to_thread(self._get_price_history_df_sync, symbol)
+
+    async def get_quotes(
+        self,
+        symbol: str,
+        init_date=None,
+        end_date=None,
+    ) -> dict:
+        df = await self.get_price_history_df(symbol)
         if end_date:
             end_date = pd.to_datetime(end_date).normalize()
             df = df[df['date'] <= end_date]
         if init_date:
             init_date = pd.to_datetime(init_date).normalize()
-            df = df[df['date'] >= init_date]    
+            df = df[df['date'] >= init_date]
         return {
             'ticker': symbol,
             'currency': df['currency'].iloc[0] if not df.empty else None,
             'quotes': df[['date', 'open', 'high', 'low', 'close']].to_dict(orient='records'),
         }
 
-    def get_sp500_history(self):
+    def _get_sp500_history_sync(self):
+        """Synchronous version."""
         try:
             ts = TimeSeries(key=self.alpha_vantage_key, output_format='pandas')
             data, metadata = ts.get_daily(symbol='SPY', outputsize='full')
@@ -85,7 +100,12 @@ class AlphaVantageClient:
             )
             raise e
 
-    def get_usd_brl_exchange_rate_alpha_vantage(self):
+    async def get_sp500_history(self):
+        """Async wrapper."""
+        return await asyncio.to_thread(self._get_sp500_history_sync)
+
+    def _get_usd_brl_exchange_rate_sync(self):
+        """Synchronous version."""
         try:
             fx = ForeignExchange(key=self.alpha_vantage_key)
             data, _ = fx.get_currency_exchange_daily(
@@ -100,3 +120,7 @@ class AlphaVantageClient:
             return df[['data', 'BRL/USD']]
         except Exception as e:
             raise e
+
+    async def get_usd_brl_exchange_rate_alpha_vantage(self):
+        """Async wrapper."""
+        return await asyncio.to_thread(self._get_usd_brl_exchange_rate_sync)

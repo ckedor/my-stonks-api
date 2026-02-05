@@ -36,10 +36,11 @@ async def get_portfolio_asset_returns(
 @router.get('/{portfolio_id}/position')
 async def get_portfolio_position(
     portfolio_id: int,
+    group_by_broker: bool = Query(False),
     session = Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_portfolio_position(portfolio_id)
+    return await service.get_portfolio_position(portfolio_id, group_by_broker=group_by_broker)
 
 
 @router.get('/{portfolio_id}/position_history')

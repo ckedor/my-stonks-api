@@ -37,5 +37,15 @@
       "justMyCode": false,
       "preLaunchTask": "Start Dependencies"
     }
+  ],
+  "compounds": [
+    {
+      "name": "API + Worker",
+      "configurations": [
+        "Python: FastAPI (uvicorn)",
+        "Run Celery Worker (terminal separado)"
+      ],
+      "stopAll": true
+    }
   ]
 }

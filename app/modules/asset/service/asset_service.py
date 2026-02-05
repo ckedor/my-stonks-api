@@ -9,16 +9,38 @@ from app.infra.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
 from app.infra.db.models.constants.currency import CURRENCY
 from app.infra.db.models.portfolio import Transaction
 from app.infra.db.repositories.base_repository import SQLAlchemyRepository
+from app.infra.redis.decorators import cached
+from app.infra.redis.redis_service import RedisService
 
 
 class AssetService:
     def __init__(self, session):
         self.session = session
         self.repo = SQLAlchemyRepository(session)
+        self.cache = RedisService()
 
+    @cached(key_prefix="assets_list", cache=lambda self: self.cache, ttl=86400)
     async def list_assets(self):
-        assets = await self.repo.get(Asset)
-        return assets
+        assets = await self.repo.get(Asset, order_by='ticker')
+        return [
+            {
+                "id": a.id,
+                "ticker": a.ticker,
+                "name": a.name,
+                "asset_type_id": a.asset_type_id,
+                "asset_type": {
+                    "id": a.asset_type.id,
+                    "short_name": a.asset_type.short_name,
+                    "name": a.asset_type.name,
+                    "asset_class_id": a.asset_type.asset_class_id,
+                    "asset_class": {
+                        "id": a.asset_type.asset_class.id,
+                        "name": a.asset_type.asset_class.name,
+                    },
+                },
+            }
+            for a in assets
+        ]
 
     async def delete_asset(self, asset_id: int):
         ## TODO: Fazer deletes cascade apropriados no BANCO

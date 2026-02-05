@@ -13,6 +13,8 @@ from app.infra.db.models.portfolio import (
     Position,
     Transaction,
 )
+from app.infra.redis.decorators import cached
+from app.infra.redis.redis_service import RedisService
 from app.modules.portfolio.api.portfolio.schemas import (
     CreatePortfolioRequest,
     UpdatePortfolioRequest,
@@ -24,6 +26,7 @@ class PortfolioBaseService:
     def __init__(self, session):
         self.session = session
         self.repo = PortfolioRepository(session)
+        self.cache = RedisService()
 
     async def create_portfolio(self, portfolio: CreatePortfolioRequest, user_id: int):
         id_list = await self.repo.create(Portfolio, {'name': portfolio.name, 'user_id': user_id})

@@ -8,4 +8,8 @@ logging.basicConfig(
     force=True,
 )
 
+# Silence noisy loggers
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
+
 logger = logging.getLogger('my-stonks')

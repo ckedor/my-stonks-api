@@ -10,6 +10,7 @@ import pandas as pd
 
 from app.config.logger import logger
 from app.domain.finance.returns import calculate_acc_returns_from_prices
+from app.infra.db.models.asset import Currency
 from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.market_data import Index, IndexHistory
 from app.infra.db.repositories.base_repository import SQLAlchemyRepository
@@ -34,6 +35,11 @@ class MarketDataService:
         base_repo = SQLAlchemyRepository(self.session)
         indexes = await base_repo.get(Index)
         return indexes
+
+    async def list_currencies(self):
+        base_repo = SQLAlchemyRepository(self.session)
+        currencies = await base_repo.get(Currency, order_by='code')
+        return currencies
 
     @cached(key_prefix="indexes_history", cache=lambda self: self.cache, ttl=3600)
     async def get_indexes_history(self, start_date: pd.Timestamp = None) -> pd.DataFrame:
@@ -108,9 +114,10 @@ class MarketDataService:
 
         init_date = most_recent.date - pd.DateOffset(days=10) if most_recent else None
 
-        history_df = self.market_data_provider.get_series_historical_data(
+        history_df = await self.market_data_provider.get_series_historical_data(
             index, init_date=init_date
-        ).copy()
+        )
+        history_df = history_df.copy()
 
         history_df = self._extend_indexes_to_today(history_df, index.id)
         history_df['index_id'] = index.id
@@ -172,7 +179,7 @@ class MarketDataService:
         treasury_type: str = None,
         treasury_maturity_date: str = None
     ):
-        return self.market_data_provider.get_asset_quotes(
+        return await self.market_data_provider.get_asset_quotes(
             ticker,
             asset_type,
             exchange,

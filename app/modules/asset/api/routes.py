@@ -6,8 +6,6 @@ Handles asset management, asset types, fixed income, and events.
 
 from typing import List
 
-from fastapi import APIRouter, Depends
-
 from app.infra.db.session import get_session
 from app.modules.asset.api.schemas import (
     Asset,
@@ -17,15 +15,16 @@ from app.modules.asset.api.schemas import (
     FixedIncomeType,
 )
 from app.modules.asset.service.asset_service import AssetService
+from fastapi import APIRouter, Depends
 
 router = APIRouter(tags=['Assets'], prefix='/assets')
 
 
-@router.get('/assets', response_model=List[Asset])
+@router.get('/assets')
 async def list_assets(
     session=Depends(get_session),
 ):
-    """List all assets"""
+    """List all assets (cached for 24h)"""
     service = AssetService(session)
     return await service.list_assets()
 
