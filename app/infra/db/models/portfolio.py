@@ -151,6 +151,7 @@ class CustomCategory(Base):
     portfolio_id = Column(Integer, ForeignKey('portfolio.portfolio.id'), nullable=False)
     color = Column(String(7), nullable=False, default='#000')
     benchmark_id = Column(Integer, ForeignKey('market_data.index.id'), nullable=True)
+    target_percentage = Column(Float, nullable=True)
 
     portfolio = relationship('Portfolio', back_populates='custom_categories', lazy='joined')
     assignments = relationship('CustomCategoryAssignment', back_populates='category')
@@ -167,6 +168,7 @@ class CustomCategoryAssignment(Base):
     id = Column(Integer, primary_key=True)
     custom_category_id = Column(Integer, ForeignKey('portfolio.custom_category.id'), nullable=False)
     asset_id = Column(Integer, ForeignKey('asset.asset.id'), nullable=False)
+    target_percentage = Column(Float, nullable=True)
 
     category = relationship('CustomCategory', back_populates='assignments', lazy='joined')
     asset = relationship('Asset')

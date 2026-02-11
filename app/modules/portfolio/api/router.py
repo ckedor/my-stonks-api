@@ -8,6 +8,7 @@ from .income_tax.router import router as income_tax_router
 from .portfolio.router import router as portfolio_router
 from .position.router import router as position_router
 from .position_consolidator.router import router as position_consolidator_router
+from .rebalancing.router import router as rebalancing_router
 from .reports.router import router as reports_router
 from .transaction.router import router as transaction_router
 from .user_configuration.router import router as user_configuration_router
@@ -23,5 +24,6 @@ router.include_router(position_consolidator_router)
 router.include_router(income_tax_router)
 router.include_router(user_configuration_router)
 router.include_router(reports_router)
+router.include_router(rebalancing_router)
 
 __all__ = ['router']
