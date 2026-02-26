@@ -7,7 +7,6 @@ import pandas as pd
 
 from app.domain.finance.trade import profits_by_month_df
 from app.domain.income_tax.tax_income_calculator import TaxIncomeCalculator
-from app.domain.old.finance.position_calculator import PositionCalculator
 from app.infra.db.models.asset import Event
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY

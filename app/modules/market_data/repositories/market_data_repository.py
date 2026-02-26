@@ -16,6 +16,7 @@ class MarketDataRepository(SQLAlchemyRepository):
     async def get_index_history_df(
         self,
         start_date: str = None,
+        index_id: int = None,
     ) -> pd.DataFrame:
         """
         Get index history as DataFrame.
@@ -30,6 +31,8 @@ class MarketDataRepository(SQLAlchemyRepository):
 
         if start_date:
             stmt = stmt.where(IndexHistory.date >= start_date)
+        if index_id:
+            stmt = stmt.where(Index.id == index_id)
 
         result = await self.session.execute(stmt)
         rows = result.all()

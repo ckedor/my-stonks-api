@@ -13,21 +13,22 @@ from fastapi import HTTPException
 
 from app.config.logger import logger
 from app.domain.finance.trade import average_price
-from app.domain.old.finance.fixed_income_calculator import FixedIncomeCalculator
 from app.infra.db.models.asset import Asset, Event
+from app.infra.db.models.asset_fixed_income import FixedIncome
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY, CURRENCY_MAP
 from app.infra.db.models.constants.user_configuration import USER_CONFIGURATION
+from app.infra.db.models.market_data import IndexHistory
 from app.infra.db.models.portfolio import (
     Dividend,
     PortfolioUserConfiguration,
     Position,
     Transaction,
 )
-from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 from app.infra.db.session import AsyncSessionLocal
 from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.modules.market_data.service.market_data_service import MarketDataService
+from app.modules.portfolio.domain.fixed_income import calculate_fixed_income_prices
 from app.modules.portfolio.repositories import PortfolioRepository
 
 
@@ -176,12 +177,29 @@ class PortfolioConsolidatorService:
 
     async def _get_prices(self, asset_transactions_df, asset, portfolio_id):
         init_date = asset_transactions_df['date'].min()
-        db_repo = SQLAlchemyRepository(self.session)
-        fixed_income_calculator = FixedIncomeCalculator(db_repo)
         market_data_provider = MarketDataProvider()
         if self._is_fixed_income(asset):
-            prices_df = await fixed_income_calculator.calculate_asset_prices(
-                asset, portfolio_id, asset_transactions_df
+            fixed_income = await self.repo.get(
+                FixedIncome, by={'asset_id': asset.id}, first=True
+            )
+            index_history_df = await self.repo.get(
+                IndexHistory, by={'index_id': fixed_income.index.id}, as_df=True
+            )
+            if index_history_df.empty:
+                raise ValueError(
+                    f'Não existe dados de histórico do índice {fixed_income.index.short_name}'
+                )
+            dividends_df = await self.repo.get(
+                Dividend,
+                by={'portfolio_id': portfolio_id, 'asset_id': asset.id},
+                as_df=True,
+            )
+            prices_df = calculate_fixed_income_prices(
+                fixed_income_type_id=fixed_income.fixed_income_type_id,
+                fee=fixed_income.fee,
+                transactions_df=asset_transactions_df,
+                index_history_df=index_history_df,
+                dividends_df=dividends_df if not dividends_df.empty else None,
             )
             prices_df['currency'] = CURRENCY.BRL
         else:

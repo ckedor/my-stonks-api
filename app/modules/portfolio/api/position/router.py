@@ -7,6 +7,7 @@ from app.modules.asset.api.schemas import AssetDetailsWithPosition
 from app.modules.portfolio.service.portfolio_position_service import (
     PortfolioPositionService,
 )
+from app.utils.response import df_response
 
 router = APIRouter(tags=['Portfolio Position'])
 
@@ -30,8 +31,8 @@ async def get_portfolio_asset_returns(
     session = Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_asset_returns(portfolio_id, asset_ids, start_date, end_date)
-
+    asset_returns = await service.get_asset_acc_returns(portfolio_id, asset_ids, start_date, end_date)
+    return df_response(asset_returns)
 
 @router.get('/{portfolio_id}/position')
 async def get_portfolio_position(
@@ -75,3 +76,13 @@ async def get_asset_details(
     service = PortfolioPositionService(session)
     asset_details = await service.get_asset_details(portfolio_id, asset_id)
     return asset_details
+
+@router.get('/{portfolio_id}/asset/analysis')
+async def get_asset_analysis(
+    portfolio_id: int,
+    asset_id: int = Query(None),
+    session = Depends(get_session)
+):
+    service = PortfolioPositionService(session)
+    asset_analysis = await service.get_asset_analysis(portfolio_id, asset_id)
+    return asset_analysis

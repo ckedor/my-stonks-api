@@ -10,13 +10,21 @@ import numpy as np
 import pandas as pd
 from fastapi import HTTPException
 
-from app.domain.old.finance.returns_calculator import ReturnsCalculator
+from app.domain.finance.performance_metrics import annualize_rets
+from app.domain.finance.returns import calculate_returns
 from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.portfolio import Position
 from app.infra.redis.decorators import cached
 from app.infra.redis.redis_service import RedisService
 from app.modules.asset.api.schemas import AssetDetailsOut, AssetDetailsWithPosition
 from app.modules.market_data.service.market_data_service import MarketDataService
+from app.modules.portfolio.domain.asset_analysis import calculate_asset_analysis
+from app.modules.portfolio.domain.returns import (
+    calculate_asset_acc_returns,
+    calculate_portfolio_daily_returns,
+    calculate_returns_portfolio,
+)
 from app.modules.portfolio.repositories import PortfolioRepository
 from app.utils.df import df_to_dict_list, df_to_named_dict
 from app.utils.response import df_response
@@ -54,6 +62,38 @@ class PortfolioPositionService:
             ),
         }
         return AssetDetailsWithPosition(**asset_serialized_with_position)
+    
+    async def get_asset_analysis(self, portfolio_id: int, asset_id: int) -> dict:
+        asset_position_df = await self.repo.get_asset_position_df(
+            portfolio_id, [asset_id], start_date=None, end_date=None
+        )
+
+        if asset_position_df.empty:
+            return None
+
+        returns = calculate_portfolio_daily_returns(asset_position_df)
+        returns = returns[['date', 'asset_return']]
+        
+        asset_returns = returns.set_index('date')['asset_return']
+        start_date = returns['date'].min()
+            
+        benchmarks = {}
+
+        cdi_history = await self.market_data_service.get_index_history(start_date, INDEX.CDI)
+        benchmarks['CDI'] = cdi_history
+
+        category = await self.repo.get_asset_category(portfolio_id, asset_id)
+        if category.benchmark_id != INDEX.CDI:
+            benchmark_history = await self.market_data_service.get_index_history(
+                start_date, category.benchmark_id
+            )
+            benchmarks[category.benchmark.short_name] = benchmark_history
+        
+
+        result = calculate_asset_analysis(asset_returns, benchmarks)
+
+        return result
+
 
     async def get_aported_history(self, portfolio_id: int):
         transactions_df = await self.repo.get_transactions_df(portfolio_id)
@@ -66,7 +106,7 @@ class PortfolioPositionService:
         total_aported.rename(columns={'amount': 'aported'}, inplace=True)
         return total_aported
 
-    #@cached(key_prefix="patrimony_evolution", cache=lambda self: self.cache, ttl=3600)
+    @cached(key_prefix="patrimony_evolution", cache=lambda self: self.cache, ttl=3600)
     async def get_patrimony_evolution(
         self, 
         portfolio_id: int,
@@ -124,8 +164,7 @@ class PortfolioPositionService:
     async def compute_portfolio_returns(self, portfolio_id: int):
         portfolio_position_df = await self.repo.get_portfolio_position_df(portfolio_id)
 
-        returns_calculator = ReturnsCalculator()
-        returns = returns_calculator.calculate_returns_portfolio(portfolio_position_df)
+        returns = calculate_returns_portfolio(portfolio_position_df)
         
         assets_from_current_position = await self.repo.get_assets_from_current_position(portfolio_id)
         assets_returns = returns['assets_returns'].copy()
@@ -139,10 +178,21 @@ class PortfolioPositionService:
         
         return response
 
+    async def get_asset_acc_returns(
+        self,
+        portfolio_id: int,
+        asset_ids: list[int],
+        start_date: str = None,
+        end_date: str = None
+    ):
+        daily_returns_df = await self.get_asset_returns(portfolio_id, asset_ids, start_date, end_date)
+        returns_df = calculate_asset_acc_returns(daily_returns_df)
+        return returns_df
+    
     async def get_asset_returns(
         self,
         portfolio_id: int,
-        asset_ids: int,
+        asset_ids: list[int],
         start_date: str = None,
         end_date: str = None
     ):
@@ -151,14 +201,11 @@ class PortfolioPositionService:
         )
 
         if asset_position_df.empty:
-            raise HTTPException(
-                status_code=404,
-                detail=f'Returns not found for asset_ids {asset_ids} in portfolio {portfolio_id}',
-            )
+            return None
 
-        returns_calculator = ReturnsCalculator()
-        returns_df = returns_calculator.calculate_asset_returns(asset_position_df)
-        return df_response(returns_df)
+        daily_returns_df = calculate_portfolio_daily_returns(asset_position_df)
+        return daily_returns_df[['date', 'asset_return']]
+    
 
     async def get_portfolio_position(
         self, 

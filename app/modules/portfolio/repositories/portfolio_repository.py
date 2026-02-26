@@ -270,6 +270,19 @@ class PortfolioRepository(SQLAlchemyRepository):
     async def get_asset_position_df(
         self, portfolio_id: int, asset_ids: list[int], start_date=None, end_date=None
     ) -> pd.DataFrame:
+        dividend_subquery = (
+            select(
+                Dividend.asset_id,
+                Dividend.portfolio_id,
+                Dividend.date,
+                func.sum(Dividend.amount).label('total_dividend'),
+            )
+            .where(Dividend.portfolio_id == portfolio_id)
+            .where(Dividend.asset_id.in_(asset_ids))
+            .group_by(Dividend.asset_id, Dividend.portfolio_id, Dividend.date)
+            .subquery()
+        )
+
         stmt = (
             select(
                 Position.date,
@@ -277,16 +290,18 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Asset.ticker,
                 Position.quantity,
                 Position.price,
+                Position.twelve_months_return,
                 Currency.name.label('currency'),
-                Dividend.amount.label('dividend'),
+                func.coalesce(dividend_subquery.c.total_dividend, 0).label('dividend'),
             )
             .join(Asset, Position.asset_id == Asset.id)
+            .join(Currency, Asset.currency_id == Currency.id)
             .outerjoin(
-                Dividend,
+                dividend_subquery,
                 and_(
-                    Dividend.asset_id == Position.asset_id,
-                    Dividend.date == Position.date,
-                    Dividend.portfolio_id == Position.portfolio_id,
+                    dividend_subquery.c.asset_id == Position.asset_id,
+                    dividend_subquery.c.date == Position.date,
+                    dividend_subquery.c.portfolio_id == Position.portfolio_id,
                 ),
             )
             .where(Position.portfolio_id == portfolio_id)
@@ -301,9 +316,8 @@ class PortfolioRepository(SQLAlchemyRepository):
         result = await self.session.execute(stmt)
         df = pd.DataFrame(
             result.all(),
-            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'currency', 'dividend'],
+            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'twelve_months_return', 'currency', 'dividend'],
         )
-        df['dividend'] = df['dividend'].fillna(0).infer_objects(copy=False)
         df['date'] = pd.to_datetime(df['date'])
         return df
 
@@ -483,7 +497,20 @@ class PortfolioRepository(SQLAlchemyRepository):
             return None
 
         return pd.to_datetime(latest_date)
-    
+
+    async def get_asset_category(
+        self, portfolio_id: int, asset_id: int
+    ) -> Optional[CustomCategory]:
+        """Returns the CustomCategory (with benchmark) for an asset in a portfolio."""
+        stmt = (
+            select(CustomCategory)
+            .join(CustomCategoryAssignment, CustomCategoryAssignment.custom_category_id == CustomCategory.id)
+            .where(CustomCategory.portfolio_id == portfolio_id)
+            .where(CustomCategoryAssignment.asset_id == asset_id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_assets_from_current_position(
         self, portfolio_id: int
     ) -> List[int]:

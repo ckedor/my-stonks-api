@@ -41,6 +41,35 @@ class MarketDataService:
         currencies = await base_repo.get(Currency, order_by='code')
         return currencies
 
+    USD_INDEXES = {INDEX.SP500, INDEX.NASDAQ}
+
+    async def get_index_history(self, start_date: pd.Timestamp = None, index_id: int = None) -> pd.Series:
+        """
+        Returns a price-like Series with DatetimeIndex for a given index.
+        For rate-based indexes (CDI, IPCA), builds a cumulative index from daily rates.
+        For USD-based indexes (S&P500, NASDAQ), converts to BRL.
+        For price-based indexes (IBOV, etc.), returns the value directly.
+        """
+        df = await self.repo.get_index_history_df(start_date, index_id=index_id)
+        df = df.sort_values('date')
+        df['value'] = df['value'].astype(float)
+
+        if index_id in {INDEX.IPCA, INDEX.CDI}:
+            values = self._build_index_from_percent(df['value'])
+        else:
+            values = df['value']
+
+        if index_id in self.USD_INDEXES:
+            usdbrl_df = await self.get_usd_brl_history(start_date)
+            df = df.merge(usdbrl_df[['date', 'usdbrl']], on='date', how='left')
+            df['usdbrl'] = df['usdbrl'].ffill()
+            values = values * df['usdbrl'].values
+
+        values.index = df['date'].values
+        values.index.name = 'date'
+        return values
+        
+
     @cached(key_prefix="indexes_history", cache=lambda self: self.cache, ttl=3600)
     async def get_indexes_history(self, start_date: pd.Timestamp = None) -> pd.DataFrame:
         return await self.compute_indexes_history(start_date)

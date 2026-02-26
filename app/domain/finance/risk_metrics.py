@@ -12,10 +12,43 @@ def drawdown(return_series: pd.Series):
     previous_peaks = wealth_index.cummax()
     drawdowns = (wealth_index - previous_peaks)/previous_peaks
     return pd.DataFrame({
-        "Wealth": wealth_index,
-        "Peaks": previous_peaks,
-        "Drawdown": drawdowns
+        "wealth": wealth_index,
+        "peaks": previous_peaks,
+        "drawdown": drawdowns
     })
+    
+def drawdown_stats(r: pd.Series) -> dict:
+    df = drawdown(r)
+    wealth, peaks, dd = df["wealth"], df["peaks"], df["drawdown"]
+
+    max_dd = float(dd.min())
+    max_dd_date = dd.idxmin()
+
+    peak_val = float(peaks.loc[max_dd_date])
+    peak_date_before = peaks.loc[:max_dd_date].idxmax()
+
+    after = wealth.loc[max_dd_date:]
+    recovered = after[after >= peak_val]
+    recovery_date = recovered.index[0] if len(recovered) else None
+    recovery_days = (recovery_date - peak_date_before).days if recovery_date is not None else None
+
+    in_dd = dd < 0
+    grp = (in_dd != in_dd.shift(1)).cumsum()
+    max_duration_days = 0
+    for _, mask in in_dd.groupby(grp):
+        if not mask.iloc[0]:
+            continue
+        dur = (mask.index[-1] - mask.index[0]).days
+        max_duration_days = max(max_duration_days, dur)
+
+    return {
+        "max_drawdown": max_dd,
+        "max_drawdown_date": max_dd_date,
+        "peak_date_before_max_dd": peak_date_before,
+        "recovery_date": recovery_date,
+        "recovery_days": recovery_days,
+        "max_drawdown_duration_days": max_duration_days,
+    }
     
 def semideviation3(r):
     """
