@@ -1,6 +1,5 @@
 # app/infra/integrations/market_data_provider.py
 import asyncio
-import time
 
 import pandas as pd
 
@@ -63,7 +62,6 @@ class MarketDataProvider:
         """
         Use: get asset prices and market indexes
         """
-        start = time.perf_counter()
         history_df = None
 
         if index.id == INDEX.USDBRL:
@@ -84,12 +82,9 @@ class MarketDataProvider:
                 index.symbol, init_date=init_date, interval='1d'
             )
 
-        elapsed = time.perf_counter() - start
-        logger.info(f'[TIMING] get_series_historical_data({index.symbol}): {elapsed:.2f}s')
         return history_df
 
     async def get_asset_prices(self, asset: Asset, init_date) -> pd.DataFrame:
-        start = time.perf_counter()
         prices_df = pd.DataFrame()
         source = 'unknown'
 
@@ -99,34 +94,27 @@ class MarketDataProvider:
             ASSET_TYPE.FII,
             ASSET_TYPE.BDR,
         }:
-            source = 'brapi'
             prices_df = await self.brapi_client.get_price_history_df(
                 asset.ticker, init_date=init_date, interval='1d'
             )
 
-            if prices_df.empty or prices_df['date'].min() > init_date:
-                source = 'alphavantage'
+            if prices_df.empty:
                 prices_df = await self.alphavantage_client.get_price_history_df(asset.ticker)
 
         elif asset.asset_type.id == ASSET_TYPE.PREV:
-            source = 'mais_retorno'
             fund_legal_id = extract_digits(asset.fund.legal_id)
             prices_df = await self.mais_retorno_client.get_fund_price_history_df(fund_legal_id, init_date)
 
         elif asset.asset_type.id == ASSET_TYPE.CRIPTO:
-            source = 'crypto_compare'
             prices_df = await self.crypto_compare_client.get_crypto_price_history_df(
                 asset.ticker, init_date=init_date
             )
 
         elif asset.asset_type.id == ASSET_TYPE.TREASURY:
-            source = 'tesouro'
             maturity_date = asset.treasury_bond.maturity_date
             type_name = asset.treasury_bond.type.name
             prices_df = await self.tesouro_client.get_precos_tesouro(type_name, maturity_date)
 
-        elapsed = time.perf_counter() - start
-        logger.info(f'[TIMING] get_asset_prices({asset.ticker}, source={source}): {elapsed:.2f}s')
         return prices_df
 
     async def get_all_fiis_df(self):

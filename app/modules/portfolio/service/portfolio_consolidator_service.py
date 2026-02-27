@@ -4,7 +4,6 @@ Portfolio consolidator service - handles position consolidation and recalculatio
 """
 
 import asyncio
-import time
 from datetime import datetime
 
 import numpy as np
@@ -74,13 +73,9 @@ class PortfolioConsolidatorService:
 
     async def recalculate_position_asset(self, portfolio_id, asset_id):
         try:
-            total_start = time.perf_counter()
-            
             asset = await self.repo.get(Asset, asset_id, first=True, relations=["treasury_bond", "fixed_income"]) #TODO: eu preciso fazer o select in load do trasury_bond. Mas aqui não faz mt sentido. Repensar.
-            
-            t0 = time.perf_counter()
+            logger.info(f'Consolidando ativo: {asset.ticker}')
             transactions_df = await self._get_transactions(portfolio_id, asset_id)
-            logger.info(f'[TIMING] _get_transactions({asset.ticker}): {time.perf_counter() - t0:.2f}s')
             
             if transactions_df.empty:
                 
@@ -95,9 +90,7 @@ class PortfolioConsolidatorService:
                     mask = transactions_df['date'] < pd.to_datetime(event.date)
                     transactions_df.loc[mask, 'quantity'] *= event.factor
 
-            t1 = time.perf_counter()
             prices_df = await self._get_prices(transactions_df, asset, portfolio_id)
-            logger.info(f'[TIMING] _get_prices({asset.ticker}): {time.perf_counter() - t1:.2f}s')
             
             # PATCH rápido e local
             if asset_id == 19:
@@ -123,16 +116,25 @@ class PortfolioConsolidatorService:
                     position_df[col] = position_df[col].ffill()
             position_df['quantity'] = position_df['quantity'].fillna(0).cumsum().round(6)
             
+            # Se a quantidade final é 0, o ativo foi vendido por completo.
+            # Trunca as posições até a última data com quantidade > 0.
+            if position_df['quantity'].iloc[-1] == 0:
+                last_nonzero = position_df[position_df['quantity'] > 0]
+                if last_nonzero.empty:
+                    await self.repo.delete(
+                        Position,
+                        by={'asset_id': asset_id, 'portfolio_id': portfolio_id},
+                    )
+                    return
+                position_df = position_df.loc[:last_nonzero.index[-1]].copy()
+            
             self._calculate_returns(position_df)
             
-            t2 = time.perf_counter()
             await self._persist_positions_db(position_df, transactions_df['date'].min(), asset, portfolio_id)
-            logger.info(f'[TIMING] _persist_positions_db({asset.ticker}): {time.perf_counter() - t2:.2f}s')
-            
-            total_elapsed = time.perf_counter() - total_start
-            logger.info(f'[TIMING] recalculate_position_asset({asset.ticker}) TOTAL: {total_elapsed:.2f}s')
+            logger.info(f'Sucesso ao consolidar ativo: {asset.ticker}')
         except Exception as e:
-            logger.error(f'Falha ao calcular posições para {asset.ticker}: {e}')
+            ticker = asset.ticker if 'asset' in dir() and asset else f'id={asset_id}'
+            logger.error(f'Falha ao calcular posições para {ticker}: {e}')
 
     async def _get_transactions(self, portfolio_id, asset_id):
         trans_df = await self.repo.get_transactions_df(

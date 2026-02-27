@@ -1,7 +1,6 @@
 # app/infra/integrations/tesouro_client.py
 import asyncio
 import gzip
-import time
 from datetime import date
 from io import StringIO
 
@@ -50,27 +49,20 @@ class TesouroClient:
         today = date.today()
 
         if TesouroClient._cached_df is not None and TesouroClient._cache_date == today:
-            logger.info('[TIMING] Tesouro CSV from memory cache')
             return TesouroClient._cached_df
 
         async with self._get_lock():
             if TesouroClient._cached_df is not None and TesouroClient._cache_date == today:
-                logger.info('[TIMING] Tesouro CSV from memory cache (after lock)')
                 return TesouroClient._cached_df
 
             try:
                 redis = await self._get_redis()
                 redis_key = self._get_redis_key()
 
-                start = time.perf_counter()
                 cached_gzip = await redis.get(redis_key)
 
                 if cached_gzip:
                     csv_content = gzip.decompress(cached_gzip).decode('utf-8')
-                    logger.info(
-                        f'[TIMING] Tesouro CSV from Redis (gzip): {time.perf_counter() - start:.2f}s '
-                        f'({len(cached_gzip)/1024/1024:.1f}MB compressed)'
-                    )
                     result = await self._parse_csv(csv_content)
                     TesouroClient._cached_df = result
                     TesouroClient._cache_date = today
@@ -78,18 +70,10 @@ class TesouroClient:
 
                 taxas_precos_history_url = 'https://www.tesourotransparente.gov.br/ckan/dataset/df56aa42-484a-4a59-8184-7676580c81e3/resource/796d2059-14e9-44e3-80c9-2d9e30b405c1/download/PrecoTaxaTesouroDireto.csv'
 
-                start_download = time.perf_counter()
                 response = await self.http.get(taxas_precos_history_url, parse_json=False)
-                download_time = time.perf_counter() - start_download
-                logger.info(
-                    f'[TIMING] Tesouro CSV download: {download_time:.2f}s ({len(response)/1024/1024:.1f}MB)'
-                )
 
                 compressed = gzip.compress(response.encode('utf-8'), compresslevel=6)
                 await redis.set(redis_key, compressed, ex=self.REDIS_TTL_SECONDS)
-                logger.info(
-                    f'[TIMING] Tesouro CSV saved to Redis (gzip): {len(compressed)/1024/1024:.1f}MB'
-                )
 
                 result = await self._parse_csv(response)
                 TesouroClient._cached_df = result
@@ -110,10 +94,7 @@ class TesouroClient:
             )
             return data
 
-        start_parse = time.perf_counter()
         result = await asyncio.to_thread(parse)
-        parse_time = time.perf_counter() - start_parse
-        logger.info(f'[TIMING] Tesouro CSV parsing: {parse_time:.2f}s')
         return result
 
     async def get_precos_tesouro(self, tipo_titulo, vencimento):
