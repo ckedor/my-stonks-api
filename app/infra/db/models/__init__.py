@@ -6,6 +6,12 @@ from .asset_investment_fund import InvestmentFund
 from .asset_stock import Stock
 from .asset_treasury_bond import TreasuryBond
 from .market_data import AssetPriceHistory, Index, IndexHistory
+from .personal_finance import (
+    FinanceCategory,
+    FinanceExpense,
+    FinanceIncome,
+    FinanceSubcategory,
+)
 from .portfolio import (
     Broker,
     CustomCategory,
@@ -41,4 +47,8 @@ __all__ = [
     'Position',
     'Return12M',
     'Transaction',
+    'FinanceCategory',
+    'FinanceSubcategory',
+    'FinanceExpense',
+    'FinanceIncome',
 ]
