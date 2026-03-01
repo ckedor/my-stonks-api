@@ -68,6 +68,14 @@ class PersonalFinanceService:
         await self.repo.delete(FinanceSubcategory, id=subcategory_id)
         await self.session.commit()
 
+    async def update_subcategory_goal(self, subcategory_id: int, goal_amount: float | None):
+        sub = await self.repo.get(FinanceSubcategory, id=subcategory_id)
+        if not sub:
+            raise ValueError('Subcategory not found')
+        await self.repo.update(FinanceSubcategory, {'id': subcategory_id, 'goal_amount': goal_amount})
+        await self.session.commit()
+        return await self.repo.get(FinanceSubcategory, id=subcategory_id)
+
     async def list_expenses(self, user_id: int, year: int, month: int):
         return await self.finance_repo.get_expenses_by_month(user_id, year, month)
 
@@ -135,3 +143,46 @@ class PersonalFinanceService:
 
     async def monthly_breakdown(self, user_id: int, year: int, month: int):
         return await self.finance_repo.get_expense_breakdown(user_id, year, month)
+
+    async def monthly_goals_progress(self, user_id: int, year: int, month: int):
+        goals = await self.finance_repo.get_subcategories_with_goals(user_id)
+        spent_map = await self.finance_repo.get_monthly_spent_by_subcategory(user_id, year, month)
+
+        today = date.today()
+        last_day = calendar.monthrange(year, month)[1]
+
+        if year < today.year or (year == today.year and month < today.month):
+            days_remaining = 0
+        elif year == today.year and month == today.month:
+            days_remaining = max(last_day - today.day + 1, 0)
+        else:
+            days_remaining = last_day
+
+        data = []
+        for sub in goals:
+            goal_amount = float(sub.goal_amount or 0)
+            spent = float(spent_map.get(sub.id, 0))
+            if goal_amount > 0:
+                progress_percent = (spent / goal_amount) * 100
+            else:
+                progress_percent = 0
+            remaining = goal_amount - spent
+            per_day_available = remaining / days_remaining if days_remaining > 0 else 0
+
+            data.append(
+                {
+                    'subcategory_id': sub.id,
+                    'subcategory_name': sub.name,
+                    'category_id': sub.category.id,
+                    'category_name': sub.category.name,
+                    'goal_amount': round(goal_amount, 2),
+                    'spent_amount': round(spent, 2),
+                    'remaining_amount': round(remaining, 2),
+                    'progress_percent': round(progress_percent, 2),
+                    'per_day_available': round(per_day_available, 2),
+                    'days_remaining': days_remaining,
+                    'is_over_goal': spent > goal_amount,
+                }
+            )
+
+        return data

@@ -5,6 +5,7 @@ Personal Finance repository - handles aggregate queries that go beyond base CRUD
 from collections import defaultdict
 
 from app.infra.db.models.personal_finance import (
+    FinanceCategory,
     FinanceExpense,
     FinanceIncome,
     FinanceSubcategory,
@@ -108,3 +109,39 @@ class PersonalFinanceRepository:
             'by_category': category_breakdown,
             'by_subcategory': subcategory_breakdown,
         }
+
+    async def get_subcategories_with_goals(self, user_id: int):
+        stmt = (
+            select(FinanceSubcategory)
+            .join(FinanceCategory, FinanceSubcategory.category_id == FinanceCategory.id)
+            .where(
+                FinanceCategory.user_id == user_id,
+                FinanceSubcategory.goal_amount.is_not(None),
+                FinanceSubcategory.goal_amount > 0,
+            )
+            .options(selectinload(FinanceSubcategory.category))
+            .order_by(FinanceCategory.name.asc(), FinanceSubcategory.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def get_monthly_spent_by_subcategory(
+        self,
+        user_id: int,
+        year: int,
+        month: int,
+    ) -> dict[int, float]:
+        stmt = (
+            select(
+                FinanceExpense.subcategory_id.label('subcategory_id'),
+                func.coalesce(func.sum(FinanceExpense.amount), 0).label('total'),
+            )
+            .where(
+                FinanceExpense.user_id == user_id,
+                extract('year', FinanceExpense.date) == year,
+                extract('month', FinanceExpense.date) == month,
+            )
+            .group_by(FinanceExpense.subcategory_id)
+        )
+        result = await self.session.execute(stmt)
+        return {int(row.subcategory_id): float(row.total) for row in result}

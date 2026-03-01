@@ -19,6 +19,8 @@ from app.modules.personal_finance.api.schemas import (
     IncomeUpdate,
     MonthlySummary,
     SubcategoryCreate,
+    SubcategoryGoalProgress,
+    SubcategoryGoalUpdate,
     SubcategoryOut,
     SubcategoryUpdate,
 )
@@ -114,6 +116,22 @@ async def delete_subcategory(subcategory_id: int, session=Depends(get_session)):
     try:
         await service.delete_subcategory(subcategory_id)
         return {'message': 'OK'}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put('/subcategories/{subcategory_id}/goal', response_model=SubcategoryOut)
+async def update_subcategory_goal(
+    subcategory_id: int,
+    data: SubcategoryGoalUpdate,
+    session=Depends(get_session),
+):
+    if data.goal_amount is not None and data.goal_amount <= 0:
+        raise HTTPException(status_code=400, detail='Goal must be greater than zero')
+    service = PersonalFinanceService(session)
+    try:
+        sub = await service.update_subcategory_goal(subcategory_id, data.goal_amount)
+        return sub
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -235,3 +253,14 @@ async def monthly_breakdown(
 ):
     service = PersonalFinanceService(session)
     return await service.monthly_breakdown(user.id, year, month)
+
+
+@router.get('/summary/monthly-goals', response_model=List[SubcategoryGoalProgress])
+async def monthly_goals_progress(
+    year: int,
+    month: int,
+    user: User = Depends(current_active_user),
+    session=Depends(get_session),
+):
+    service = PersonalFinanceService(session)
+    return await service.monthly_goals_progress(user.id, year, month)

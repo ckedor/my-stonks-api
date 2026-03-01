@@ -21,6 +21,7 @@ class SubcategoryOut(BaseModel):
     id: int
     name: str
     category_id: int
+    goal_amount: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,6 +79,7 @@ class SubcategoryWithCategory(BaseModel):
     id: int
     name: str
     category_id: int
+    goal_amount: Optional[float] = None
     category: CategoryBrief
 
     model_config = ConfigDict(from_attributes=True)
@@ -132,3 +134,21 @@ class SubcategoryExpense(BaseModel):
     subcategory: str
     category: str
     total: float
+
+
+class SubcategoryGoalUpdate(BaseModel):
+    goal_amount: Optional[float] = None
+
+
+class SubcategoryGoalProgress(BaseModel):
+    subcategory_id: int
+    subcategory_name: str
+    category_id: int
+    category_name: str
+    goal_amount: float
+    spent_amount: float
+    remaining_amount: float
+    progress_percent: float
+    per_day_available: float
+    days_remaining: int
+    is_over_goal: bool

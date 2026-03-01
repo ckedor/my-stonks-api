@@ -25,6 +25,7 @@ class FinanceSubcategory(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
+    goal_amount = Column(Float, nullable=True)
     category_id = Column(
         Integer, ForeignKey('personal_finance.category.id', ondelete='CASCADE'), nullable=False
     )
