@@ -10,8 +10,6 @@ import numpy as np
 import pandas as pd
 from fastapi import HTTPException
 
-from app.domain.finance.performance_metrics import annualize_rets
-from app.domain.finance.returns import calculate_returns
 from app.infra.db.models.constants.currency import CURRENCY
 from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.portfolio import Position
@@ -19,7 +17,7 @@ from app.infra.redis.decorators import cached
 from app.infra.redis.redis_service import RedisService
 from app.modules.asset.api.schemas import AssetDetailsOut, AssetDetailsWithPosition
 from app.modules.market_data.service.market_data_service import MarketDataService
-from app.modules.portfolio.domain.asset_analysis import calculate_asset_analysis
+from app.modules.portfolio.domain.asset_analysis import calculate_returns_analysis
 from app.modules.portfolio.domain.returns import (
     calculate_asset_acc_returns,
     calculate_portfolio_daily_returns,
@@ -63,6 +61,26 @@ class PortfolioPositionService:
         }
         return AssetDetailsWithPosition(**asset_serialized_with_position)
     
+    async def get_portfolio_analysis(self, portfolio_id: int) -> dict:
+        portfolio_position_df = await self.repo.get_portfolio_position_df(portfolio_id)
+
+        if portfolio_position_df.empty:
+            return None
+
+        returns = calculate_portfolio_daily_returns(portfolio_position_df)
+        returns['weighted_return'] = (returns['value'] / returns['net_value_day']) * returns['asset_return']
+        grouped = returns.groupby('date')['weighted_return'].sum().reset_index()
+        
+        portfolio_returns = grouped.set_index('date')['weighted_return']
+        start_date = grouped['date'].min()
+            
+        benchmarks = {}
+        cdi_history = await self.market_data_service.get_index_history(start_date, INDEX.CDI)
+        benchmarks['CDI'] = cdi_history
+    
+        result = calculate_returns_analysis(portfolio_returns, benchmarks)
+        return result
+    
     async def get_asset_analysis(self, portfolio_id: int, asset_id: int) -> dict:
         asset_position_df = await self.repo.get_asset_position_df(
             portfolio_id, [asset_id], start_date=None, end_date=None
@@ -90,7 +108,7 @@ class PortfolioPositionService:
             benchmarks[category.benchmark.short_name] = benchmark_history
         
 
-        result = calculate_asset_analysis(asset_returns, benchmarks)
+        result = calculate_returns_analysis(asset_returns, benchmarks)
 
         return result
 

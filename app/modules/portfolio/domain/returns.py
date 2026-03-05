@@ -46,7 +46,6 @@ def calculate_returns_portfolio(pos_df: pd.DataFrame) -> dict:
         "category_returns": category_df,
     }
 
-
 def calculate_portfolio_acc_return(df: pd.DataFrame) -> pd.DataFrame:
     """
     Computes cumulative portfolio return using value-weighted daily returns.

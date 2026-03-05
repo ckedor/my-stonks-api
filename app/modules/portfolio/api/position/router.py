@@ -86,3 +86,12 @@ async def get_asset_analysis(
     service = PortfolioPositionService(session)
     asset_analysis = await service.get_asset_analysis(portfolio_id, asset_id)
     return asset_analysis
+
+@router.get('/{portfolio_id}/analysis')
+async def get_portfolio_analysis(
+    portfolio_id: int,
+    session = Depends(get_session)
+):
+    service = PortfolioPositionService(session)
+    portfolio_analysis = await service.get_portfolio_analysis(portfolio_id)
+    return portfolio_analysis

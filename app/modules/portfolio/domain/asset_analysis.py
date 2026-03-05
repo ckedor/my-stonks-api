@@ -1,10 +1,8 @@
+import math
+
 import pandas as pd
 
-from app.domain.finance.performance_metrics import (
-    annualize_rets,
-    annualize_vol,
-    sharpe_ratio,
-)
+from app.domain.finance.performance_metrics import annualize_vol, cagr, sharpe_ratio
 from app.domain.finance.returns import calculate_returns
 from app.domain.finance.risk_metrics import (
     cvar_historic,
@@ -17,24 +15,34 @@ from app.domain.finance.risk_metrics import (
 )
 
 
-def calculate_asset_analysis(
-    asset_returns: pd.Series,
+def sanitize_nan(obj):
+    if isinstance(obj, dict):
+        return {k: sanitize_nan(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [sanitize_nan(v) for v in obj]
+    if isinstance(obj, float) and math.isnan(obj):
+        return None
+    return obj
+
+def calculate_returns_analysis(
+    returns: pd.Series,
     benchmarks: dict[str, pd.Series],
 ) -> dict:
     
     cdi_returns = calculate_returns(benchmarks['CDI'])
     
-    return {
-        "start_date": asset_returns.index.min().strftime('%Y-%m-%d'),
-        "performance_metrics": calculate_performance_metrics(asset_returns, benchmarks),
-        "risk_metrics": calculate_risk_metrics(asset_returns, cdi_returns),
-        "rolling_cagr": _calculate_rolling_12m(asset_returns),
+    result = {
+        "start_date": returns.index.min().strftime('%Y-%m-%d'),
+        "performance_metrics": calculate_performance_metrics(returns, benchmarks),
+        "risk_metrics": calculate_risk_metrics(returns, cdi_returns),
+        "rolling_cagr": _calculate_rolling_12m(returns),
     }
+    return sanitize_nan(result)
 
 
-def _calculate_rolling_12m(asset_returns: pd.Series) -> list[dict]:
+def _calculate_rolling_12m(returns: pd.Series) -> list[dict]:
     """Calculate rolling 12-month return from daily returns and serialize."""
-    acc = (1 + asset_returns).cumprod()
+    acc = (1 + returns).cumprod()
     acc_12m_ago = acc.shift(365)
     rolling_12m = (acc / acc_12m_ago - 1).dropna()
     return [
@@ -43,12 +51,12 @@ def _calculate_rolling_12m(asset_returns: pd.Series) -> list[dict]:
     ]
 
 
-def calculate_risk_metrics(asset_returns, cdi_returns):
-    annual_vol = annualize_vol(asset_returns)
-    sr = sharpe_ratio(asset_returns, cdi_returns)
+def calculate_risk_metrics(returns, cdi_returns):
+    annual_vol = annualize_vol(returns)
+    sr = sharpe_ratio(returns, cdi_returns)
 
-    dd_df = drawdown(asset_returns)
-    dd_stats = drawdown_stats(asset_returns)
+    dd_df = drawdown(returns)
+    dd_stats = drawdown_stats(returns)
 
     dd_serialized = (
         dd_df["drawdown"]
@@ -65,24 +73,24 @@ def calculate_risk_metrics(asset_returns, cdi_returns):
             "series": dd_serialized,
             "stats": dd_stats,
         },
-        "semideviation": semideviation(asset_returns),
-        "skewness": skewness(asset_returns),
-        "kurtosis": kurtosis(asset_returns),
-        "var_95": var_historic(asset_returns, level=5),
-        "cvar_95": cvar_historic(asset_returns, level=5),
+        "semideviation": semideviation(returns),
+        "skewness": skewness(returns),
+        "kurtosis": kurtosis(returns),
+        "var_95": var_historic(returns, level=5),
+        "cvar_95": cvar_historic(returns, level=5),
     }
 
-def calculate_performance_metrics(asset_returns, benchmarks):
-    cagr = annualize_rets(asset_returns)
+def calculate_performance_metrics(returns, benchmarks):
+    portfolio_cagr = cagr(returns)
     
     benchmarks_metrics = {}
     for name, benchmark_history in benchmarks.items():
         benchmark_returns = calculate_returns(benchmark_history)
-        cagr_benchmark = annualize_rets(benchmark_returns)
-        alpha = cagr - cagr_benchmark
+        cagr_benchmark = cagr(benchmark_returns)
+        alpha = portfolio_cagr - cagr_benchmark
         
-        corr = asset_returns.corr(benchmark_returns)
-        beta = corr * (asset_returns.std() / benchmark_returns.std()) if benchmark_returns.std() > 0 else 0
+        corr = returns.corr(benchmark_returns)
+        beta = corr * (returns.std() / benchmark_returns.std()) if benchmark_returns.std() > 0 else 0
         benchmarks_metrics[name] = {
             "cagr": cagr_benchmark * 100,
             "alpha": alpha * 100,
@@ -91,6 +99,6 @@ def calculate_performance_metrics(asset_returns, benchmarks):
         }
 
     return{
-        "cagr": cagr * 100,
+        "cagr": portfolio_cagr * 100,
         "benchmarks_metrics": benchmarks_metrics
     }
