@@ -9,6 +9,7 @@ class FinanceCategory(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
+    goal_amount = Column(Float, nullable=True)
     user_id = Column(Integer, ForeignKey('public.user.id'), nullable=False)
 
     subcategories = relationship(

@@ -76,6 +76,14 @@ class PersonalFinanceService:
         await self.session.commit()
         return await self.repo.get(FinanceSubcategory, id=subcategory_id)
 
+    async def update_category_goal(self, category_id: int, goal_amount: float | None):
+        cat = await self.repo.get(FinanceCategory, id=category_id)
+        if not cat:
+            raise ValueError('Category not found')
+        await self.repo.update(FinanceCategory, {'id': category_id, 'goal_amount': goal_amount})
+        await self.session.commit()
+        return await self.repo.get(FinanceCategory, id=category_id)
+
     async def list_expenses(self, user_id: int, year: int, month: int):
         return await self.finance_repo.get_expenses_by_month(user_id, year, month)
 
@@ -145,8 +153,10 @@ class PersonalFinanceService:
         return await self.finance_repo.get_expense_breakdown(user_id, year, month)
 
     async def monthly_goals_progress(self, user_id: int, year: int, month: int):
-        goals = await self.finance_repo.get_subcategories_with_goals(user_id)
-        spent_map = await self.finance_repo.get_monthly_spent_by_subcategory(user_id, year, month)
+        cat_goals = await self.finance_repo.get_categories_with_goals(user_id)
+        sub_goals = await self.finance_repo.get_subcategories_with_goals(user_id)
+        spent_by_sub = await self.finance_repo.get_monthly_spent_by_subcategory(user_id, year, month)
+        spent_by_cat = await self.finance_repo.get_monthly_spent_by_category(user_id, year, month)
 
         today = date.today()
         last_day = calendar.monthrange(year, month)[1]
@@ -158,31 +168,53 @@ class PersonalFinanceService:
         else:
             days_remaining = last_day
 
-        data = []
-        for sub in goals:
-            goal_amount = float(sub.goal_amount or 0)
-            spent = float(spent_map.get(sub.id, 0))
-            if goal_amount > 0:
-                progress_percent = (spent / goal_amount) * 100
-            else:
-                progress_percent = 0
+        def _progress(goal_amount: float, spent: float):
+            progress = (spent / goal_amount * 100) if goal_amount > 0 else 0
             remaining = goal_amount - spent
-            per_day_available = remaining / days_remaining if days_remaining > 0 else 0
+            per_day = remaining / days_remaining if days_remaining > 0 else 0
+            return {
+                'goal_amount': round(goal_amount, 2),
+                'spent_amount': round(spent, 2),
+                'remaining_amount': round(remaining, 2),
+                'progress_percent': round(progress, 2),
+                'per_day_available': round(per_day, 2),
+                'days_remaining': days_remaining,
+                'is_over_goal': spent > goal_amount,
+            }
 
-            data.append(
-                {
+        sub_goals_by_cat: dict[int, list] = {}
+        for sub in sub_goals:
+            sub_goals_by_cat.setdefault(sub.category_id, []).append(sub)
+
+        categories = []
+        total_goal = 0.0
+        total_spent = 0.0
+
+        for cat in cat_goals:
+            cat_goal = float(cat.goal_amount or 0)
+            cat_spent = float(spent_by_cat.get(cat.id, 0))
+            total_goal += cat_goal
+            total_spent += cat_spent
+
+            subs_data = []
+            for sub in sub_goals_by_cat.get(cat.id, []):
+                sub_spent = float(spent_by_sub.get(sub.id, 0))
+                subs_data.append({
                     'subcategory_id': sub.id,
                     'subcategory_name': sub.name,
-                    'category_id': sub.category.id,
-                    'category_name': sub.category.name,
-                    'goal_amount': round(goal_amount, 2),
-                    'spent_amount': round(spent, 2),
-                    'remaining_amount': round(remaining, 2),
-                    'progress_percent': round(progress_percent, 2),
-                    'per_day_available': round(per_day_available, 2),
-                    'days_remaining': days_remaining,
-                    'is_over_goal': spent > goal_amount,
-                }
-            )
+                    **_progress(float(sub.goal_amount or 0), sub_spent),
+                })
 
-        return data
+            categories.append({
+                'category_id': cat.id,
+                'category_name': cat.name,
+                **_progress(cat_goal, cat_spent),
+                'subcategories': subs_data,
+            })
+
+        overview = _progress(total_goal, total_spent)
+
+        return {
+            'overview': overview,
+            'categories': categories,
+        }

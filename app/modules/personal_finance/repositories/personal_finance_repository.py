@@ -125,6 +125,20 @@ class PersonalFinanceRepository:
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
+    async def get_categories_with_goals(self, user_id: int):
+        stmt = (
+            select(FinanceCategory)
+            .where(
+                FinanceCategory.user_id == user_id,
+                FinanceCategory.goal_amount.is_not(None),
+                FinanceCategory.goal_amount > 0,
+            )
+            .options(selectinload(FinanceCategory.subcategories))
+            .order_by(FinanceCategory.name.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
     async def get_monthly_spent_by_subcategory(
         self,
         user_id: int,
@@ -145,3 +159,26 @@ class PersonalFinanceRepository:
         )
         result = await self.session.execute(stmt)
         return {int(row.subcategory_id): float(row.total) for row in result}
+
+    async def get_monthly_spent_by_category(
+        self,
+        user_id: int,
+        year: int,
+        month: int,
+    ) -> dict[int, float]:
+        stmt = (
+            select(
+                FinanceCategory.id.label('category_id'),
+                func.coalesce(func.sum(FinanceExpense.amount), 0).label('total'),
+            )
+            .join(FinanceSubcategory, FinanceExpense.subcategory_id == FinanceSubcategory.id)
+            .join(FinanceCategory, FinanceSubcategory.category_id == FinanceCategory.id)
+            .where(
+                FinanceExpense.user_id == user_id,
+                extract('year', FinanceExpense.date) == year,
+                extract('month', FinanceExpense.date) == month,
+            )
+            .group_by(FinanceCategory.id)
+        )
+        result = await self.session.execute(stmt)
+        return {int(row.category_id): float(row.total) for row in result}

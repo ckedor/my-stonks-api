@@ -14,13 +14,13 @@ from app.modules.personal_finance.api.schemas import (
     ExpenseCreate,
     ExpenseOut,
     ExpenseUpdate,
+    GoalUpdate,
     IncomeCreate,
     IncomeOut,
     IncomeUpdate,
+    MonthlyGoalsResponse,
     MonthlySummary,
     SubcategoryCreate,
-    SubcategoryGoalProgress,
-    SubcategoryGoalUpdate,
     SubcategoryOut,
     SubcategoryUpdate,
 )
@@ -123,7 +123,7 @@ async def delete_subcategory(subcategory_id: int, session=Depends(get_session)):
 @router.put('/subcategories/{subcategory_id}/goal', response_model=SubcategoryOut)
 async def update_subcategory_goal(
     subcategory_id: int,
-    data: SubcategoryGoalUpdate,
+    data: GoalUpdate,
     session=Depends(get_session),
 ):
     if data.goal_amount is not None and data.goal_amount <= 0:
@@ -132,6 +132,22 @@ async def update_subcategory_goal(
     try:
         sub = await service.update_subcategory_goal(subcategory_id, data.goal_amount)
         return sub
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put('/categories/{category_id}/goal', response_model=CategoryOut)
+async def update_category_goal(
+    category_id: int,
+    data: GoalUpdate,
+    session=Depends(get_session),
+):
+    if data.goal_amount is not None and data.goal_amount <= 0:
+        raise HTTPException(status_code=400, detail='Goal must be greater than zero')
+    service = PersonalFinanceService(session)
+    try:
+        cat = await service.update_category_goal(category_id, data.goal_amount)
+        return CategoryOut(id=cat.id, name=cat.name, goal_amount=cat.goal_amount, subcategories=[])
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -255,7 +271,7 @@ async def monthly_breakdown(
     return await service.monthly_breakdown(user.id, year, month)
 
 
-@router.get('/summary/monthly-goals', response_model=List[SubcategoryGoalProgress])
+@router.get('/summary/monthly-goals', response_model=MonthlyGoalsResponse)
 async def monthly_goals_progress(
     year: int,
     month: int,
