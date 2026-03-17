@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, ForeignKey, Integer, String
+from sqlalchemy import Column, Date, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 
 from app.infra.db.base import Base
@@ -26,6 +26,7 @@ class TreasuryBond(Base):
     id = Column(Integer, primary_key=True)
     asset_id = Column(Integer, ForeignKey('asset.asset.id'), nullable=False)
     maturity_date = Column(Date)
+    fee = Column(Numeric(8, 5), nullable=True)
     type_id = Column(Integer, ForeignKey('asset.treasury_bond_type.id'), nullable=False)
     type = relationship('TreasuryBondType', back_populates='treasury_bonds', lazy='joined')
 

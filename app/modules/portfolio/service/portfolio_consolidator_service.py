@@ -14,8 +14,12 @@ from app.config.logger import logger
 from app.domain.finance.trade import average_price
 from app.infra.db.models.asset import Asset, Event
 from app.infra.db.models.asset_fixed_income import FixedIncome
+from app.infra.db.models.constants.asset_fixed_income_type import (
+    ASSET_FIXED_INCOME_TYPE,
+)
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY, CURRENCY_MAP
+from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.constants.user_configuration import USER_CONFIGURATION
 from app.infra.db.models.market_data import IndexHistory
 from app.infra.db.models.portfolio import (
@@ -29,6 +33,15 @@ from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.modules.market_data.service.market_data_service import MarketDataService
 from app.modules.portfolio.domain.fixed_income import calculate_fixed_income_prices
 from app.modules.portfolio.repositories import PortfolioRepository
+
+# treasury_bond_type_id → INDEX id (None = prefixado, sem indexador)
+TREASURY_INDEX_MAP = {
+    1: INDEX.CDI,    # LFT  – Tesouro Selic
+    2: None,         # LTN  – Tesouro Prefixado
+    3: None,         # NTN-F – Tesouro Prefixado c/ Juros Semestrais
+    4: INDEX.IPCA,   # NTN-B – Tesouro IPCA+ c/ Juros Semestrais
+    5: INDEX.IPCA,   # NTN-B Principal – Tesouro IPCA+
+}
 
 
 class PortfolioConsolidatorService:
@@ -204,6 +217,11 @@ class PortfolioConsolidatorService:
                 dividends_df=dividends_df if not dividends_df.empty else None,
             )
             prices_df['currency'] = CURRENCY.BRL
+        elif self._is_treasury(asset):
+            prices_df = await self._calculate_treasury_prices(
+                asset, asset_transactions_df, portfolio_id
+            )
+            prices_df['currency'] = CURRENCY.BRL
         else:
             prices_df = await market_data_provider.get_asset_prices(asset, init_date)
             prices_df = self._extend_value_to_today(prices_df, 'close')
@@ -283,6 +301,43 @@ class PortfolioConsolidatorService:
             ASSET_TYPE.CDB,
             ASSET_TYPE.LCA,
         }
+
+    @staticmethod
+    def _is_treasury(asset):
+        return asset.asset_type.id == ASSET_TYPE.TREASURY
+
+    async def _calculate_treasury_prices(self, asset, transactions_df, portfolio_id):
+        """Calcula preço do tesouro via índice + taxa, igual a renda fixa."""
+        treasury = asset.treasury_bond
+        fee = float(treasury.fee) if treasury.fee else 0.0
+        index_id = TREASURY_INDEX_MAP.get(treasury.type_id)
+
+        if index_id is not None:
+            index_history_df = await self.repo.get(
+                IndexHistory, by={'index_id': index_id}, as_df=True
+            )
+            if index_history_df.empty:
+                raise ValueError(
+                    f'Não existe dados de histórico do índice {index_id} para {asset.ticker}'
+                )
+        else:
+            # Prefixado: sem indexador, só taxa fixa
+            dates = pd.date_range(start=transactions_df['date'].min(), end=datetime.today())
+            index_history_df = pd.DataFrame({'date': dates, 'close': 0.0})
+
+        dividends_df = await self.repo.get(
+            Dividend,
+            by={'portfolio_id': portfolio_id, 'asset_id': asset.id},
+            as_df=True,
+        )
+
+        return calculate_fixed_income_prices(
+            fixed_income_type_id=ASSET_FIXED_INCOME_TYPE.INDEX_PLUS,
+            fee=fee,
+            transactions_df=transactions_df,
+            index_history_df=index_history_df,
+            dividends_df=dividends_df if not dividends_df.empty else None,
+        )
 
     @staticmethod
     def _calculate_returns(position_df):
@@ -385,5 +440,7 @@ class PortfolioConsolidatorService:
                 }
             )
         await self.session.commit()
+        logger.info(f"Dividendos de {row['ticker']} na data {row['date']} consolidados com sucesso")
+
         logger.info(f"Dividendos de {row['ticker']} na data {row['date']} consolidados com sucesso")
 
