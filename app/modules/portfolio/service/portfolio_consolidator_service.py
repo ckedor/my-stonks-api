@@ -292,7 +292,7 @@ class PortfolioConsolidatorService:
 
         position_df['twelve_months_return'] = None
         position_df['date_12m_ago'] = position_df['date'] - pd.DateOffset(years=1)
-        acc_map_brl = position_df.set_index('date')['acc_return']
+        acc_map_brl = position_df.drop_duplicates(subset='date', keep='last').set_index('date')['acc_return']
         position_df['acc_return_12m_ago'] = position_df['date_12m_ago'].map(acc_map_brl)
         position_df['twelve_months_return'] = (
             (1 + position_df['acc_return']) / (1 + position_df['acc_return_12m_ago']) - 1
@@ -304,7 +304,7 @@ class PortfolioConsolidatorService:
         )
         position_df['acc_return_usd'] = (1 + position_df['daily_return_usd']).cumprod() - 1
 
-        acc_map_usd = position_df.set_index('date')['acc_return_usd']
+        acc_map_usd = position_df.drop_duplicates(subset='date', keep='last').set_index('date')['acc_return_usd']
         position_df['acc_return_usd_12m_ago'] = position_df['date_12m_ago'].map(acc_map_usd)
         position_df['twelve_months_return_usd'] = (
             (1 + position_df['acc_return_usd']) / (1 + position_df['acc_return_usd_12m_ago']) - 1
