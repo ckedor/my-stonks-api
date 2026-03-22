@@ -95,3 +95,7 @@ class AssetService:
     async def update_event(self, event):
         await self.repo.update(Event, event.model_dump())
         await self.session.commit()
+
+    async def delete_event(self, event_id: int):
+        await self.repo.delete(Event, event_id)
+        await self.session.commit()

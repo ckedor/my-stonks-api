@@ -15,6 +15,7 @@ from app.modules.asset.api.schemas import (
     FixedIncomeType,
 )
 from app.modules.asset.service.asset_service import AssetService
+from app.modules.users.views import current_superuser
 from fastapi import APIRouter, Depends
 
 router = APIRouter(tags=['Assets'], prefix='/assets')
@@ -76,7 +77,7 @@ async def get_segments(
     return await service.list_fii_segments()
 
 
-@router.get('/events', response_model=List[AssetEvent])
+@router.get('/events', response_model=List[AssetEvent], dependencies=[Depends(current_superuser)])
 async def list_events(
     session=Depends(get_session),
 ):
@@ -85,7 +86,7 @@ async def list_events(
     return await service.list_events()
 
 
-@router.post('/event')
+@router.post('/event', dependencies=[Depends(current_superuser)])
 async def create_event(
     event: AssetEvent,
     session=Depends(get_session),
@@ -95,7 +96,7 @@ async def create_event(
     return await service.create_event(event)
 
 
-@router.put('/event')
+@router.put('/event', dependencies=[Depends(current_superuser)])
 async def update_event(
     event: AssetEvent,
     session=Depends(get_session),
@@ -103,3 +104,14 @@ async def update_event(
     """Update an asset event"""
     service = AssetService(session)
     return await service.update_event(event)
+
+
+@router.delete('/event/{event_id}', dependencies=[Depends(current_superuser)])
+async def delete_event(
+    event_id: int,
+    session=Depends(get_session),
+):
+    """Delete an asset event"""
+    service = AssetService(session)
+    await service.delete_event(event_id)
+    return {'message': 'OK'}

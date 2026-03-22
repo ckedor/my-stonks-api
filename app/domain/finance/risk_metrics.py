@@ -114,7 +114,7 @@ def var_historic(r, level=5, monthly=True):
         return r.aggregate(var_historic, level=level)
     elif isinstance(r, pd.Series):
         if monthly:
-            r = r.resample('M').apply(lambda x: (1 + x).prod() - 1)
+            r = r.resample('ME').apply(lambda x: (1 + x).prod() - 1)
         return -np.percentile(r, level)
     else:
         raise TypeError("Expected r to be Series or DataFrame")

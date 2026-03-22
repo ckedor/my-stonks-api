@@ -91,7 +91,6 @@ class PortfolioConsolidatorService:
             transactions_df = await self._get_transactions(portfolio_id, asset_id)
             
             if transactions_df.empty:
-                
                 await self.repo.delete(
                     Position,
                     by={'asset_id': asset_id, 'portfolio_id': portfolio_id},
@@ -104,19 +103,6 @@ class PortfolioConsolidatorService:
                     transactions_df.loc[mask, 'quantity'] *= event.factor
 
             prices_df = await self._get_prices(transactions_df, asset, portfolio_id)
-            
-            # PATCH rápido e local
-            if asset_id == 19:
-                prices_df["date"] = pd.to_datetime(prices_df["date"])
-
-                bad_window = prices_df["date"].between("2026-01-13", "2026-01-18", inclusive="both")
-
-                # considera inválido preço < 10 (caso XPML11)
-                for col in ("price", "price_usd"):
-                    if col in prices_df.columns:
-                        prices_df.loc[bad_window & (prices_df[col] < 10), col] = pd.NA
-                        prices_df[col] = prices_df[col].ffill()
-            
             
             start_date = transactions_df['date'].min()
             end_date = prices_df['date'].max()

@@ -397,7 +397,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 'category',
             ],
         )
-        df['dividend'] = df['dividend'].fillna(0).infer_objects(copy=False)
+        df['dividend'] = pd.to_numeric(df['dividend'], errors='coerce').fillna(0)
         df['date'] = pd.to_datetime(df['date'])
         return df
 
@@ -425,7 +425,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 'class',
             ],
         )
-        df['dividend'] = df['dividend'].fillna(0).infer_objects(copy=False)
+        df['dividend'] = pd.to_numeric(df['dividend'], errors='coerce').fillna(0)
         df['date'] = pd.to_datetime(df['date'])
         return df
     

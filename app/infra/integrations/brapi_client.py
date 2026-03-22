@@ -82,6 +82,7 @@ class BrapiClient:
             df = pd.DataFrame(history)
             df['currency'] = asset.get('currency')
             df['date'] = pd.to_datetime(df['date'], unit='s').dt.normalize()
+            df = df.drop_duplicates(subset=['date'])
             df = extend_values_to_today(df)
             return df
 
