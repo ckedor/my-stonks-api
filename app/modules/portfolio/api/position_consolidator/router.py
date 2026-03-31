@@ -6,6 +6,9 @@ from app.modules.portfolio.repositories import PortfolioRepository
 from app.modules.portfolio.service.portfolio_consolidator_service import (
     PortfolioConsolidatorService,
 )
+from app.modules.portfolio.service.portfolio_returns_consolidator_service import (
+    PortfolioReturnsConsolidatorService,
+)
 from app.modules.portfolio.tasks.set_patrimony_evolution_cache import (
     set_patrimony_evolution_cache,
 )
@@ -51,4 +54,24 @@ async def recalculate_all_positions(
     await service.recalculate_all_positions_portfolio(portfolio_id)
     run_task(set_patrimony_evolution_cache, portfolio_id)
     run_task(set_portfolio_returns_cache, portfolio_id)
+    return {'message': 'OK'}
+
+
+@router.post('/{portfolio_id}/consolidate_portfolio_returns')
+async def consolidate_portfolio_returns(
+    portfolio_id: int,
+    session=Depends(get_session),
+):
+    service = PortfolioReturnsConsolidatorService(session)
+    await service.consolidate_returns(portfolio_id)
+    return {'message': 'OK'}
+
+
+@router.post('/{portfolio_id}/consolidate_category_returns')
+async def consolidate_category_returns(
+    portfolio_id: int,
+    session=Depends(get_session),
+):
+    service = PortfolioReturnsConsolidatorService(session)
+    await service.consolidate_category_returns(portfolio_id)
     return {'message': 'OK'}

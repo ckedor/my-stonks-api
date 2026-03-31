@@ -8,8 +8,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from fastapi import HTTPException
-
 from app.config.logger import logger
 from app.domain.finance.trade import average_price
 from app.infra.db.models.asset import Asset, Event
@@ -33,6 +31,7 @@ from app.infra.integrations.market_data_provider import MarketDataProvider
 from app.modules.market_data.service.market_data_service import MarketDataService
 from app.modules.portfolio.domain.fixed_income import calculate_fixed_income_prices
 from app.modules.portfolio.repositories import PortfolioRepository
+from fastapi import HTTPException
 
 # treasury_bond_type_id → INDEX id (None = prefixado, sem indexador)
 TREASURY_INDEX_MAP = {
@@ -113,7 +112,18 @@ class PortfolioConsolidatorService:
             for col in ['price', 'price_usd', 'average_price', 'average_price_usd']:
                 if col in position_df.columns:
                     position_df[col] = position_df[col].ffill()
-            position_df['quantity'] = position_df['quantity'].fillna(0).cumsum().round(6)
+
+            # Compute cumulative total invested (BRL and USD) before cumsum on quantity
+            # At this point, quantity is NaN on non-trade days and the per-day delta on trade days
+            raw_qty = position_df['quantity'].fillna(0)
+            position_df['total_invested'] = (
+                raw_qty * position_df['transaction_price_brl'].fillna(0)
+            ).cumsum()
+            position_df['total_invested_usd'] = (
+                raw_qty * position_df['transaction_price_usd'].fillna(0)
+            ).cumsum()
+
+            position_df['quantity'] = raw_qty.cumsum().round(6)
             
             # Se a quantidade final é 0, o ativo foi vendido por completo.
             # Trunca as posições até a última data com quantidade > 0.
@@ -173,7 +183,7 @@ class PortfolioConsolidatorService:
         
         trans_df['average_price'] = average_price(trans_df, price_col='transaction_price_brl')
         trans_df['average_price_usd'] = average_price(trans_df, price_col='transaction_price_usd')
-        trans_df = trans_df[['date', 'quantity', 'transaction_price_brl', 'average_price', 'average_price_usd']]
+        trans_df = trans_df[['date', 'quantity', 'transaction_price_brl', 'transaction_price_usd', 'average_price', 'average_price_usd']]
         return trans_df
 
     async def _get_prices(self, asset_transactions_df, asset, portfolio_id):
@@ -327,8 +337,15 @@ class PortfolioConsolidatorService:
 
     @staticmethod
     def _calculate_returns(position_df):
+        # Zero out returns when investor had no exposure:
+        # - days where quantity is 0
+        # - day of rebuy (prev day qty was 0, price change doesn't represent earned return)
+        prev_qty = position_df['quantity'].shift(1).fillna(0)
+        no_exposure = (position_df['quantity'] == 0) | (prev_qty == 0)
+
         # BRL
         position_df['daily_return'] = position_df['price'].pct_change(fill_method=None).fillna(0)
+        position_df.loc[no_exposure, 'daily_return'] = 0
         position_df['acc_return'] = (1 + position_df['daily_return']).cumprod() - 1
 
         position_df['twelve_months_return'] = None
@@ -339,10 +356,19 @@ class PortfolioConsolidatorService:
             (1 + position_df['acc_return']) / (1 + position_df['acc_return_12m_ago']) - 1
         )
 
+        # CAGR BRL
+        start_date = position_df['date'].iloc[0]
+        position_df['days_since_start'] = (position_df['date'] - start_date).dt.days
+        position_df['cagr'] = None
+        mask = position_df['days_since_start'] > 0
+        years = position_df.loc[mask, 'days_since_start'] / 365.25
+        position_df.loc[mask, 'cagr'] = (1 + position_df.loc[mask, 'acc_return']) ** (1 / years) - 1
+
         # USD
         position_df['daily_return_usd'] = (
             position_df['price_usd'].pct_change(fill_method=None).fillna(0)
         )
+        position_df.loc[no_exposure, 'daily_return_usd'] = 0
         position_df['acc_return_usd'] = (1 + position_df['daily_return_usd']).cumprod() - 1
 
         acc_map_usd = position_df.drop_duplicates(subset='date', keep='last').set_index('date')['acc_return_usd']
@@ -350,6 +376,11 @@ class PortfolioConsolidatorService:
         position_df['twelve_months_return_usd'] = (
             (1 + position_df['acc_return_usd']) / (1 + position_df['acc_return_usd_12m_ago']) - 1
         )
+
+        # CAGR USD
+        position_df['cagr_usd'] = None
+        years_usd = position_df.loc[mask, 'days_since_start'] / 365.25
+        position_df.loc[mask, 'cagr_usd'] = (1 + position_df.loc[mask, 'acc_return_usd']) ** (1 / years_usd) - 1
 
         return position_df
 

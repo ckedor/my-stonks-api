@@ -1,5 +1,8 @@
 from app.config.logger import logger
 from app.entrypoints.worker.task_runner import celery_async_task, run_task
+from app.modules.portfolio.tasks.consolidate_portfolio_returns import (
+    consolidate_portfolio_returns,
+)
 from app.modules.portfolio.tasks.set_patrimony_evolution_cache import (
     set_patrimony_evolution_cache,
 )
@@ -22,5 +25,6 @@ async def recalculate_position_asset(portfolio_id: int, asset_id: int):
             await service.recalculate_position_asset(portfolio_id, asset_id)
             run_task(set_patrimony_evolution_cache, portfolio_id)
             run_task(set_portfolio_returns_cache, portfolio_id)
+            run_task(consolidate_portfolio_returns, portfolio_id)
     except Exception as e:
         logger.error(f"❌ Erro em recalculate_position_asset: {e}", exc_info=True)

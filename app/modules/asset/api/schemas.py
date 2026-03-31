@@ -189,6 +189,7 @@ class AssetDetailsWithPosition(AssetDetailsOut):
     value: float = 0.0
     acc_return: float = 0.0
     twelve_months_return: Optional[float] = None
+    cagr: Optional[float] = None
 
 class AssetEvent(BaseModel):
     id: Optional[int]

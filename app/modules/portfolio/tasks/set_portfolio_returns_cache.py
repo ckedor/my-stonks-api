@@ -14,7 +14,7 @@ async def set_portfolio_returns_cache(portfolio_id: int):
     try:
         async with AsyncSessionLocal() as session:
             service = PortfolioPositionService(session)
-            portfolio_returns = await service.compute_portfolio_returns(portfolio_id)
+            portfolio_returns = await service.get_consolidated_portfolio_returns(portfolio_id)
             cache = RedisService()
             await cache.set_json(f"portfolio_returns:{portfolio_id}", portfolio_returns)
     except Exception as e:

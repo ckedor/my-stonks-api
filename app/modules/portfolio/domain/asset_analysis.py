@@ -1,7 +1,6 @@
 import math
 
 import pandas as pd
-
 from app.domain.finance.performance_metrics import annualize_vol, cagr, sharpe_ratio
 from app.domain.finance.returns import calculate_returns
 from app.domain.finance.risk_metrics import (
@@ -35,20 +34,24 @@ def calculate_returns_analysis(
         "start_date": returns.index.min().strftime('%Y-%m-%d'),
         "performance_metrics": calculate_performance_metrics(returns, benchmarks),
         "risk_metrics": calculate_risk_metrics(returns, cdi_returns),
-        "rolling_cagr": _calculate_rolling_12m(returns),
+        "rolling_cagr": _calculate_rolling_cagr(returns),
     }
     return sanitize_nan(result)
 
 
-def _calculate_rolling_12m(returns: pd.Series) -> list[dict]:
-    """Calculate rolling 12-month return from daily returns and serialize."""
+def _calculate_rolling_cagr(returns: pd.Series) -> list[dict]:
+    """Calculate CAGR from inception to each date."""
     acc = (1 + returns).cumprod()
-    acc_12m_ago = acc.shift(365)
-    rolling_12m = (acc / acc_12m_ago - 1).dropna()
-    return [
-        {"date": str(date.date()), "value": float(val) * 100}
-        for date, val in rolling_12m.items()
-    ]
+    start = acc.index[0]
+    results = []
+    for date, cum in acc.items():
+        days = (date - start).days
+        if days <= 0:
+            continue
+        years = days / 365.25
+        cagr_val = (cum ** (1 / years) - 1) * 100
+        results.append({"date": str(date.date()), "value": float(cagr_val)})
+    return results
 
 
 def calculate_risk_metrics(returns, cdi_returns):

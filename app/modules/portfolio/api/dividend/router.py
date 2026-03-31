@@ -1,6 +1,3 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing_extensions import Annotated
-
 from app.infra.db.session import get_session
 from app.modules.portfolio.api.dividend.schema import (
     Dividend,
@@ -11,6 +8,8 @@ from app.modules.portfolio.api.dividend.schema import (
 from app.modules.portfolio.service.portfolio_dividend_service import (
     PortfolioDividendService,
 )
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing_extensions import Annotated
 
 router = APIRouter(prefix='/dividends', tags=['Portfolio Dividends'])
 
@@ -19,10 +18,11 @@ router = APIRouter(prefix='/dividends', tags=['Portfolio Dividends'])
 async def get_portfolio_dividends(
     portfolio_id: int,
     filters: Annotated[DividendFilters, Depends()],
+    currency: str = Query('BRL'),
     session = Depends(get_session),
 ):
     service = PortfolioDividendService(session)
-    return await service.get_dividends(portfolio_id, filters)
+    return await service.get_dividends(portfolio_id, filters, currency=currency)
 
 @router.post('/')
 async def create_dividend(

@@ -14,9 +14,11 @@ from .personal_finance import (
 )
 from .portfolio import (
     Broker,
+    CategoryReturn,
     CustomCategory,
     Dividend,
     Portfolio,
+    PortfolioReturn,
     Position,
     Return12M,
     Transaction,
@@ -46,6 +48,8 @@ __all__ = [
     'Portfolio',
     'Position',
     'Return12M',
+    'PortfolioReturn',
+    'CategoryReturn',
     'Transaction',
     'FinanceCategory',
     'FinanceSubcategory',

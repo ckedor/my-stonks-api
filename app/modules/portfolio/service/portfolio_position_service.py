@@ -8,8 +8,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from fastapi import HTTPException
-
 from app.infra.db.models.constants.currency import CURRENCY
 from app.infra.db.models.constants.index import INDEX
 from app.infra.db.models.portfolio import Position
@@ -26,6 +24,7 @@ from app.modules.portfolio.domain.returns import (
 from app.modules.portfolio.repositories import PortfolioRepository
 from app.utils.df import df_to_dict_list, df_to_named_dict
 from app.utils.response import df_response
+from fastapi import HTTPException
 
 
 class PortfolioPositionService:
@@ -58,6 +57,7 @@ class PortfolioPositionService:
             'twelve_months_return': (
                 None if pd.isna(position.twelve_months_return) else position.twelve_months_return
             ),
+            'cagr': (None if pd.isna(position.cagr) else position.cagr),
         }
         return AssetDetailsWithPosition(**asset_serialized_with_position)
     
@@ -177,24 +177,10 @@ class PortfolioPositionService:
         return df_to_dict_list(result)
 
     async def get_portfolio_returns(self, portfolio_id: int):
-        return await self.compute_portfolio_returns(portfolio_id)
-    
-    async def compute_portfolio_returns(self, portfolio_id: int):
-        portfolio_position_df = await self.repo.get_portfolio_position_df(portfolio_id)
+        return await self.repo.get_portfolio_returns(portfolio_id) or None
 
-        returns = calculate_returns_portfolio(portfolio_position_df)
-        
-        assets_from_current_position = await self.repo.get_assets_from_current_position(portfolio_id)
-        assets_returns = returns['assets_returns'].copy()
-        
-        asset_returns = assets_returns[['date'] + assets_from_current_position]
-        
-        response = {
-            'assets': df_to_named_dict(asset_returns),
-            'categories': df_to_named_dict(returns['category_returns']),
-        }
-        
-        return response
+    async def get_category_returns(self, portfolio_id: int, custom_category_id: int = None, most_recent: bool = False):
+        return await self.repo.get_category_returns(portfolio_id, custom_category_id, most_recent) or None
 
     async def get_asset_acc_returns(
         self,
@@ -204,6 +190,8 @@ class PortfolioPositionService:
         end_date: str = None
     ):
         daily_returns_df = await self.get_asset_returns(portfolio_id, asset_ids, start_date, end_date)
+        if daily_returns_df is None:
+            return None
         returns_df = calculate_asset_acc_returns(daily_returns_df)
         return returns_df
     
@@ -222,7 +210,7 @@ class PortfolioPositionService:
             return None
 
         daily_returns_df = calculate_portfolio_daily_returns(asset_position_df)
-        return daily_returns_df[['date', 'asset_return']]
+        return daily_returns_df[['date', 'ticker', 'quantity', 'asset_return']]
     
 
     async def get_portfolio_position(
@@ -231,6 +219,7 @@ class PortfolioPositionService:
         date: pd.Timestamp = None,
         asset_type_id = None,
         group_by_broker: bool = False,
+        currency: str = 'BRL',
         ) -> list:
         if group_by_broker:
             pos_df = await self.repo.get_position_on_date_by_broker(
@@ -238,7 +227,7 @@ class PortfolioPositionService:
             )
         else:
             pos_df = await self.repo.get_position_on_date(
-                portfolio_id, date, asset_type_id
+                portfolio_id, date, asset_type_id, currency=currency
             )
         
         if pos_df is None or pos_df.empty:
@@ -259,3 +248,48 @@ class PortfolioPositionService:
         pos_df['value'] = pos_df['quantity'] * pos_df['price']
 
         return df_response(pos_df)
+
+    async def get_consolidated_portfolio_returns(self, portfolio_id: int):
+        """Used by the cache task to pre-compute and store in Redis."""
+        return await self.repo.get_portfolio_returns(portfolio_id) or None
+
+    async def get_portfolio_stats(self, portfolio_id: int) -> dict:
+        rows = await self.repo.get_portfolio_returns(portfolio_id)
+        if not rows:
+            return None
+
+        df = pd.DataFrame(rows)
+        df['date'] = pd.to_datetime(df['date'])
+        returns_series = df.set_index('date')['daily_return']
+        start_date = df['date'].min()
+
+        benchmarks = {}
+        cdi_history = await self.market_data_service.get_index_history(start_date, INDEX.CDI)
+        benchmarks['CDI'] = cdi_history
+
+        result = calculate_returns_analysis(returns_series, benchmarks)
+        return result
+
+    async def get_category_stats(self, portfolio_id: int, custom_category_id: int) -> dict:
+        rows = await self.repo.get_category_returns(portfolio_id, custom_category_id)
+        if not rows:
+            return None
+
+        df = pd.DataFrame(rows)
+        df['date'] = pd.to_datetime(df['date'])
+        returns_series = df.set_index('date')['daily_return']
+        start_date = df['date'].min()
+
+        benchmarks = {}
+        cdi_history = await self.market_data_service.get_index_history(start_date, INDEX.CDI)
+        benchmarks['CDI'] = cdi_history
+
+        category = await self.repo.get_asset_category_by_id(custom_category_id)
+        if category and category.benchmark_id and category.benchmark_id != INDEX.CDI:
+            benchmark_history = await self.market_data_service.get_index_history(
+                start_date, category.benchmark_id
+            )
+            benchmarks[category.benchmark.short_name] = benchmark_history
+
+        result = calculate_returns_analysis(returns_series, benchmarks)
+        return result

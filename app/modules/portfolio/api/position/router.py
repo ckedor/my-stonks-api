@@ -1,97 +1,121 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Query
-
 from app.infra.db.session import get_session
 from app.modules.asset.api.schemas import AssetDetailsWithPosition
 from app.modules.portfolio.service.portfolio_position_service import (
     PortfolioPositionService,
 )
 from app.utils.response import df_response
+from fastapi import APIRouter, Depends, Query
 
-router = APIRouter(tags=['Portfolio Position'])
+router = APIRouter()
 
 
-@router.get('/{portfolio_id}/returns')
+# --- Portfolio Data ---
+
+
+@router.get('/{portfolio_id}/returns', tags=['Portfolio Data'])
 async def get_portfolio_returns(
     portfolio_id: int,
-    session = Depends(get_session)
+    session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    returns = await service.get_portfolio_returns(portfolio_id)
-    return returns
+    return await service.get_portfolio_returns(portfolio_id)
 
 
-@router.get('/{portfolio_id}/asset_returns')
-async def get_portfolio_asset_returns(
-    portfolio_id: int,
-    asset_ids: list[int] = Query(...),
-    start_date: str = None,
-    end_date: str = None,
-    session = Depends(get_session),
-):
-    service = PortfolioPositionService(session)
-    asset_returns = await service.get_asset_acc_returns(portfolio_id, asset_ids, start_date, end_date)
-    return df_response(asset_returns)
-
-@router.get('/{portfolio_id}/position')
+@router.get('/{portfolio_id}/position', tags=['Portfolio Data'])
 async def get_portfolio_position(
     portfolio_id: int,
+    most_recent: bool = Query(True),
     group_by_broker: bool = Query(False),
-    session = Depends(get_session),
-):
-    service = PortfolioPositionService(session)
-    return await service.get_portfolio_position(portfolio_id, group_by_broker=group_by_broker)
-
-
-@router.get('/{portfolio_id}/position_history')
-async def get_portfolio_position_history(
-    portfolio_id: int,
     asset_id: int = Query(None),
-    session = Depends(get_session),
+    currency: str = Query('BRL'),
+    session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
+    if most_recent:
+        return await service.get_portfolio_position(portfolio_id, group_by_broker=group_by_broker, currency=currency)
     return await service.get_portfolio_position_history(portfolio_id, asset_id)
 
 
-@router.get('/{portfolio_id}/patrimony_evolution')
+@router.get('/{portfolio_id}/patrimony_evolution', tags=['Portfolio Data'])
 async def get_patrimony_evolution(
     portfolio_id: int,
     asset_id: int = Query(None),
     asset_type_id: int = Query(None),
     asset_type_ids: Optional[List[int]] = Query(None),
-    session = Depends(get_session),
+    session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    evolution = await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids)
-    return evolution
+    return await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids)
 
 
-@router.get('/asset/details', response_model=AssetDetailsWithPosition)
-async def get_asset_details(
-    portfolio_id: int,
-    asset_id: int = Query(None),
-    session = Depends(get_session)
-):
-    service = PortfolioPositionService(session)
-    asset_details = await service.get_asset_details(portfolio_id, asset_id)
-    return asset_details
-
-@router.get('/{portfolio_id}/asset/analysis')
-async def get_asset_analysis(
-    portfolio_id: int,
-    asset_id: int = Query(None),
-    session = Depends(get_session)
-):
-    service = PortfolioPositionService(session)
-    asset_analysis = await service.get_asset_analysis(portfolio_id, asset_id)
-    return asset_analysis
-
-@router.get('/{portfolio_id}/analysis')
+@router.get('/{portfolio_id}/analysis', tags=['Portfolio Data'])
 async def get_portfolio_analysis(
     portfolio_id: int,
-    session = Depends(get_session)
+    session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    portfolio_analysis = await service.get_portfolio_analysis(portfolio_id)
-    return portfolio_analysis
+    return await service.get_portfolio_stats(portfolio_id)
+
+
+# --- Portfolio Category Data ---
+
+
+@router.get('/{portfolio_id}/category/returns', tags=['Portfolio Category Data'])
+async def get_category_returns(
+    portfolio_id: int,
+    category_id: int = Query(None),
+    most_recent: bool = Query(False),
+    session=Depends(get_session),
+):
+    service = PortfolioPositionService(session)
+    return await service.get_category_returns(portfolio_id, category_id, most_recent)
+
+
+@router.get('/{portfolio_id}/category/{category_id}/analysis', tags=['Portfolio Category Data'])
+async def get_category_analysis(
+    portfolio_id: int,
+    category_id: int,
+    session=Depends(get_session),
+):
+    service = PortfolioPositionService(session)
+    return await service.get_category_stats(portfolio_id, category_id)
+
+
+# --- Portfolio Asset Data ---
+
+
+@router.get('/{portfolio_id}/asset/{asset_id}/returns', tags=['Portfolio Asset Data'])
+async def get_asset_returns(
+    portfolio_id: int,
+    asset_id: int,
+    start_date: str = None,
+    end_date: str = None,
+    session=Depends(get_session),
+):
+    service = PortfolioPositionService(session)
+    asset_returns = await service.get_asset_acc_returns(portfolio_id, [asset_id], start_date, end_date)
+    if asset_returns is None:
+        return []
+    return df_response(asset_returns)
+
+
+@router.get('/{portfolio_id}/asset/{asset_id}/details', tags=['Portfolio Asset Data'], response_model=AssetDetailsWithPosition)
+async def get_asset_details(
+    portfolio_id: int,
+    asset_id: int,
+    session=Depends(get_session),
+):
+    service = PortfolioPositionService(session)
+    return await service.get_asset_details(portfolio_id, asset_id)
+
+
+@router.get('/{portfolio_id}/asset/{asset_id}/analysis', tags=['Portfolio Asset Data'])
+async def get_asset_analysis(
+    portfolio_id: int,
+    asset_id: int,
+    session=Depends(get_session),
+):
+    service = PortfolioPositionService(session)
+    return await service.get_asset_analysis(portfolio_id, asset_id)

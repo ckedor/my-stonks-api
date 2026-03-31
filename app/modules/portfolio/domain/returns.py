@@ -21,10 +21,10 @@ def calculate_portfolio_daily_returns(pos_df: pd.DataFrame) -> pd.DataFrame:
         - df.groupby('date')['contribution'].transform('sum')
     )
 
-    df['asset_return'] = df.groupby('asset_id')['price'].pct_change()
+    df['asset_return'] = df.groupby('asset_id')['price'].pct_change(fill_method=None)
     base_valor = df['value'] - df['contribution']
     df['asset_return'] += df['dividend'] / base_valor.replace(0, pd.NA)
-    df['asset_return'] = df['asset_return'].fillna(0)
+    df['asset_return'] = pd.to_numeric(df['asset_return'], errors='coerce').fillna(0)
 
     return df
 
@@ -74,7 +74,7 @@ def calculate_category_acc_return(df: pd.DataFrame) -> pd.DataFrame:
     df['category_weight'] = df['base_value_prev'] / df['category_base_prev_total'].replace(
         0, pd.NA
     )
-    df['category_weight'] = df['category_weight'].fillna(0)
+    df['category_weight'] = pd.to_numeric(df['category_weight'], errors='coerce').fillna(0)
 
     df['category_weighted_return'] = df['category_weight'] * df['asset_return']
 
