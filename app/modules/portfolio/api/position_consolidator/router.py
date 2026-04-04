@@ -1,5 +1,3 @@
-from fastapi import APIRouter, Depends
-
 from app.entrypoints.worker.task_runner import run_task
 from app.infra.db.session import get_session
 from app.modules.portfolio.repositories import PortfolioRepository
@@ -9,6 +7,9 @@ from app.modules.portfolio.service.portfolio_consolidator_service import (
 from app.modules.portfolio.service.portfolio_returns_consolidator_service import (
     PortfolioReturnsConsolidatorService,
 )
+from app.modules.portfolio.tasks.consolidate_portfolio_returns import (
+    consolidate_portfolio_returns as consolidate_portfolio_returns_task,
+)
 from app.modules.portfolio.tasks.set_patrimony_evolution_cache import (
     set_patrimony_evolution_cache,
 )
@@ -16,6 +17,7 @@ from app.modules.portfolio.tasks.set_portfolio_returns_cache import (
     set_portfolio_returns_cache,
 )
 from app.modules.users.views import current_superuser
+from fastapi import APIRouter, Depends
 
 router = APIRouter(tags=['Portfolio Consolidator'], dependencies=[Depends(current_superuser)])
 
@@ -28,6 +30,7 @@ async def consolidate_portfolio(
     service = PortfolioConsolidatorService(session)
     await service.consolidate_position_portfolio(portfolio_id)
     run_task(set_patrimony_evolution_cache, portfolio_id)
+    run_task(consolidate_portfolio_returns_task, portfolio_id)
     run_task(set_portfolio_returns_cache, portfolio_id)
     return {'message': 'OK'}
 
@@ -41,6 +44,7 @@ async def consolidate_portfolio_asset(
     service = PortfolioConsolidatorService(session)
     await service.recalculate_position_asset(portfolio_id, asset_id)
     run_task(set_patrimony_evolution_cache, portfolio_id)
+    run_task(consolidate_portfolio_returns_task, portfolio_id)
     run_task(set_portfolio_returns_cache, portfolio_id)
     return {'message': 'OK'}
 
@@ -53,6 +57,7 @@ async def recalculate_all_positions(
     service = PortfolioConsolidatorService(session)
     await service.recalculate_all_positions_portfolio(portfolio_id)
     run_task(set_patrimony_evolution_cache, portfolio_id)
+    run_task(consolidate_portfolio_returns_task, portfolio_id)
     run_task(set_portfolio_returns_cache, portfolio_id)
     return {'message': 'OK'}
 

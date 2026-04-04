@@ -343,6 +343,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Dividend.portfolio_id,
                 Dividend.date,
                 func.sum(Dividend.amount).label('total_dividend'),
+                func.sum(Dividend.amount_usd).label('total_dividend_usd'),
             )
             .where(Dividend.portfolio_id == portfolio_id)
             .group_by(Dividend.asset_id, Dividend.portfolio_id, Dividend.date)
@@ -358,8 +359,10 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Asset.ticker,
                 Position.quantity,
                 Position.price,
+                Position.price_usd,
                 Position.average_price,
                 dividend_subquery.c.total_dividend.label('dividend'),
+                dividend_subquery.c.total_dividend_usd.label('dividend_usd'),
                 cat_assignment_subq.c.category,
             )
             .join(Asset, Position.asset_id == Asset.id)
@@ -398,12 +401,15 @@ class PortfolioRepository(SQLAlchemyRepository):
                 'ticker',
                 'quantity',
                 'price',
+                'price_usd',
                 'average_price',
                 'dividend',
+                'dividend_usd',
                 'category',
             ],
         )
         df['dividend'] = pd.to_numeric(df['dividend'], errors='coerce').fillna(0)
+        df['dividend_usd'] = pd.to_numeric(df['dividend_usd'], errors='coerce').fillna(0)
         df['date'] = pd.to_datetime(df['date'])
         return df
 
@@ -648,13 +654,20 @@ class PortfolioRepository(SQLAlchemyRepository):
 
         return df
 
-    async def get_portfolio_returns(self, portfolio_id: int) -> list[dict]:
+    async def get_portfolio_returns(
+        self, portfolio_id: int, currency: str = 'BRL'
+    ) -> list[dict]:
+        suffix = '_usd' if currency == 'USD' else ''
+        daily_col = getattr(PortfolioReturn, f'daily_return{suffix}')
+        acc_col = getattr(PortfolioReturn, f'acc_return{suffix}')
+        cagr_col = getattr(PortfolioReturn, f'cagr{suffix}')
+
         stmt = (
             select(
                 PortfolioReturn.date,
-                PortfolioReturn.daily_return,
-                PortfolioReturn.acc_return,
-                PortfolioReturn.cagr,
+                daily_col.label('daily_return'),
+                acc_col.label('acc_return'),
+                cagr_col.label('cagr'),
             )
             .where(PortfolioReturn.portfolio_id == portfolio_id)
             .order_by(PortfolioReturn.date)
@@ -663,8 +676,17 @@ class PortfolioRepository(SQLAlchemyRepository):
         return result.mappings().all()
 
     async def get_category_returns(
-        self, portfolio_id: int, custom_category_id: int = None, most_recent: bool = False
+        self,
+        portfolio_id: int,
+        custom_category_id: int = None,
+        most_recent: bool = False,
+        currency: str = 'BRL',
     ) -> list[dict]:
+        suffix = '_usd' if currency == 'USD' else ''
+        daily_col = getattr(CategoryReturn, f'daily_return{suffix}')
+        acc_col = getattr(CategoryReturn, f'acc_return{suffix}')
+        cagr_col = getattr(CategoryReturn, f'cagr{suffix}')
+
         if most_recent:
             # Subquery to get the max date per category
             max_date_sq = (
@@ -684,9 +706,9 @@ class PortfolioRepository(SQLAlchemyRepository):
                     CategoryReturn.date,
                     CategoryReturn.custom_category_id,
                     CustomCategory.name.label('category'),
-                    CategoryReturn.daily_return,
-                    CategoryReturn.acc_return,
-                    CategoryReturn.cagr,
+                    daily_col.label('daily_return'),
+                    acc_col.label('acc_return'),
+                    cagr_col.label('cagr'),
                 )
                 .join(CustomCategory, CustomCategory.id == CategoryReturn.custom_category_id)
                 .join(
@@ -704,9 +726,9 @@ class PortfolioRepository(SQLAlchemyRepository):
                 CategoryReturn.date,
                 CategoryReturn.custom_category_id,
                 CustomCategory.name.label('category'),
-                CategoryReturn.daily_return,
-                CategoryReturn.acc_return,
-                CategoryReturn.cagr,
+                daily_col.label('daily_return'),
+                acc_col.label('acc_return'),
+                cagr_col.label('cagr'),
             )
             .join(CustomCategory, CustomCategory.id == CategoryReturn.custom_category_id)
             .where(CategoryReturn.portfolio_id == portfolio_id)

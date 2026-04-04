@@ -210,9 +210,17 @@ class PortfolioReturn(Base):
     acc_return = Column(Float, nullable=False)
     cagr = Column(Float, nullable=True)
 
+    daily_return_usd = Column(Float, nullable=True)
+    acc_return_usd = Column(Float, nullable=True)
+    cagr_usd = Column(Float, nullable=True)
+
     portfolio = relationship('Portfolio')
 
-    COLUMNS = ['portfolio_id', 'date', 'daily_return', 'acc_return', 'cagr']
+    COLUMNS = [
+        'portfolio_id', 'date',
+        'daily_return', 'acc_return', 'cagr',
+        'daily_return_usd', 'acc_return_usd', 'cagr_usd',
+    ]
 
     def __repr__(self):
         return f'{self.date} - portfolio {self.portfolio_id} - {self.acc_return:.4%}'
@@ -230,10 +238,18 @@ class CategoryReturn(Base):
     acc_return = Column(Float, nullable=False)
     cagr = Column(Float, nullable=True)
 
+    daily_return_usd = Column(Float, nullable=True)
+    acc_return_usd = Column(Float, nullable=True)
+    cagr_usd = Column(Float, nullable=True)
+
     portfolio = relationship('Portfolio')
     category = relationship('CustomCategory')
 
-    COLUMNS = ['portfolio_id', 'custom_category_id', 'date', 'daily_return', 'acc_return', 'cagr']
+    COLUMNS = [
+        'portfolio_id', 'custom_category_id', 'date',
+        'daily_return', 'acc_return', 'cagr',
+        'daily_return_usd', 'acc_return_usd', 'cagr_usd',
+    ]
 
     def __repr__(self):
         return f'{self.date} - cat {self.custom_category_id} - {self.acc_return:.4%}'

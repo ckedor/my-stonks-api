@@ -17,10 +17,11 @@ router = APIRouter()
 @router.get('/{portfolio_id}/returns', tags=['Portfolio Data'])
 async def get_portfolio_returns(
     portfolio_id: int,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_portfolio_returns(portfolio_id)
+    return await service.get_portfolio_returns(portfolio_id, currency)
 
 
 @router.get('/{portfolio_id}/position', tags=['Portfolio Data'])
@@ -44,10 +45,11 @@ async def get_patrimony_evolution(
     asset_id: int = Query(None),
     asset_type_id: int = Query(None),
     asset_type_ids: Optional[List[int]] = Query(None),
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids)
+    return await service.get_patrimony_evolution(portfolio_id, asset_id, asset_type_id, asset_type_ids, currency=currency)
 
 
 @router.get('/{portfolio_id}/analysis', tags=['Portfolio Data'])
@@ -67,10 +69,11 @@ async def get_category_returns(
     portfolio_id: int,
     category_id: int = Query(None),
     most_recent: bool = Query(False),
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_category_returns(portfolio_id, category_id, most_recent)
+    return await service.get_category_returns(portfolio_id, category_id, most_recent, currency)
 
 
 @router.get('/{portfolio_id}/category/{category_id}/analysis', tags=['Portfolio Category Data'])

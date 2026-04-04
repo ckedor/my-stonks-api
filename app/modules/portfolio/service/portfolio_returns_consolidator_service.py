@@ -4,7 +4,6 @@ Service to consolidate portfolio and category returns into the database.
 """
 
 import pandas as pd
-
 from app.config.logger import logger
 from app.domain.finance.performance_metrics import cagr
 from app.infra.db.models.portfolio import (
@@ -60,18 +59,36 @@ class PortfolioReturnsConsolidatorService:
 
     async def _consolidate_portfolio_returns(self, pos_df: pd.DataFrame, portfolio_id: int):
         df = pos_df.copy()
+
+        # BRL
         df['weighted_return'] = (df['value'] / df['net_value_day']) * df['asset_return']
         grouped = df.groupby('date')['weighted_return'].sum().reset_index()
         grouped.rename(columns={'weighted_return': 'daily_return'}, inplace=True)
         grouped['acc_return'] = (1 + grouped['daily_return']).cumprod() - 1
 
-        # Calculate CAGR for each date
+        # USD
+        df['weighted_return_usd'] = (df['value_usd'] / df['net_value_day_usd']) * df['asset_return_usd']
+        grouped_usd = df.groupby('date')['weighted_return_usd'].sum().reset_index()
+        grouped_usd.rename(columns={'weighted_return_usd': 'daily_return_usd'}, inplace=True)
+        grouped_usd['acc_return_usd'] = (1 + grouped_usd['daily_return_usd']).cumprod() - 1
+
+        grouped = grouped.merge(grouped_usd, on='date', how='left')
+
+        # Calculate CAGR for each date (BRL)
         grouped['cagr'] = None
         returns_series = grouped.set_index('date')['daily_return']
         for i in range(1, len(grouped)):
             partial = returns_series.iloc[:i + 1]
             if len(partial) >= 2:
                 grouped.loc[grouped.index[i], 'cagr'] = cagr(partial)
+
+        # Calculate CAGR for each date (USD)
+        grouped['cagr_usd'] = None
+        returns_series_usd = grouped.set_index('date')['daily_return_usd']
+        for i in range(1, len(grouped)):
+            partial = returns_series_usd.iloc[:i + 1]
+            if len(partial) >= 2:
+                grouped.loc[grouped.index[i], 'cagr_usd'] = cagr(partial)
 
         grouped['portfolio_id'] = portfolio_id
         grouped['date'] = grouped['date'].dt.date
@@ -95,7 +112,7 @@ class PortfolioReturnsConsolidatorService:
         df['date'] = pd.to_datetime(df['date'])
         df = df.sort_values(['asset_id', 'date'])
 
-        # Calculate category daily returns (same logic as calculate_category_acc_return)
+        # BRL weights
         df['base_value'] = (df['value'] - df['contribution']).replace(0, pd.NA)
         df['base_value_prev'] = df.groupby('asset_id')['base_value'].shift(1)
         df['category_base_prev_total'] = df.groupby(['date', 'category'])[
@@ -108,8 +125,25 @@ class PortfolioReturnsConsolidatorService:
         df['category_weight'] = pd.to_numeric(df['category_weight'], errors='coerce').fillna(0)
         df['category_weighted_return'] = df['category_weight'] * df['asset_return']
 
-        daily = df.groupby(['date', 'category'])['category_weighted_return'].sum().reset_index()
-        daily.rename(columns={'category_weighted_return': 'daily_return'}, inplace=True)
+        # USD weights
+        df['base_value_usd'] = (df['value_usd'] - df['contribution_usd']).replace(0, pd.NA)
+        df['base_value_prev_usd'] = df.groupby('asset_id')['base_value_usd'].shift(1)
+        df['category_base_prev_total_usd'] = df.groupby(['date', 'category'])[
+            'base_value_prev_usd'
+        ].transform('sum')
+
+        df['category_weight_usd'] = df['base_value_prev_usd'] / df[
+            'category_base_prev_total_usd'
+        ].replace(0, pd.NA)
+        df['category_weight_usd'] = pd.to_numeric(
+            df['category_weight_usd'], errors='coerce'
+        ).fillna(0)
+        df['category_weighted_return_usd'] = df['category_weight_usd'] * df['asset_return_usd']
+
+        daily = df.groupby(['date', 'category']).agg(
+            daily_return=('category_weighted_return', 'sum'),
+            daily_return_usd=('category_weighted_return_usd', 'sum'),
+        ).reset_index()
 
         all_records = []
         for cat_name, cat_df in daily.groupby('category'):
@@ -119,14 +153,23 @@ class PortfolioReturnsConsolidatorService:
 
             cat_df = cat_df.sort_values('date').reset_index(drop=True)
             cat_df['acc_return'] = (1 + cat_df['daily_return']).cumprod() - 1
+            cat_df['acc_return_usd'] = (1 + cat_df['daily_return_usd']).cumprod() - 1
 
-            # Calculate CAGR for each date
+            # Calculate CAGR for each date (BRL)
             cat_df['cagr'] = None
             returns_series = cat_df.set_index('date')['daily_return']
             for i in range(1, len(cat_df)):
                 partial = returns_series.iloc[:i + 1]
                 if len(partial) >= 2:
                     cat_df.loc[cat_df.index[i], 'cagr'] = cagr(partial)
+
+            # Calculate CAGR for each date (USD)
+            cat_df['cagr_usd'] = None
+            returns_series_usd = cat_df.set_index('date')['daily_return_usd']
+            for i in range(1, len(cat_df)):
+                partial = returns_series_usd.iloc[:i + 1]
+                if len(partial) >= 2:
+                    cat_df.loc[cat_df.index[i], 'cagr_usd'] = cagr(partial)
 
             cat_df['portfolio_id'] = portfolio_id
             cat_df['custom_category_id'] = cat_id

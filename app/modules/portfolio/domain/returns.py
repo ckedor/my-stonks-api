@@ -1,17 +1,17 @@
 import pandas as pd
-
 from app.domain.finance.returns import calculate_acc_returns
 
 
 def calculate_portfolio_daily_returns(pos_df: pd.DataFrame) -> pd.DataFrame:
     """
     Computes daily returns for each asset in a portfolio position DataFrame.
-    Expects columns: date, asset_id, quantity, price, dividend.
+    Expects columns: date, asset_id, quantity, price, price_usd, dividend, dividend_usd.
     """
     df = pos_df.copy()
     df['date'] = pd.to_datetime(df['date'])
     df = df.sort_values(['date', 'asset_id'])
 
+    # BRL
     df['value'] = df['quantity'] * df['price']
     df['contribution'] = (
         df.groupby('asset_id')['quantity'].diff().fillna(0) * df['price']
@@ -25,6 +25,21 @@ def calculate_portfolio_daily_returns(pos_df: pd.DataFrame) -> pd.DataFrame:
     base_valor = df['value'] - df['contribution']
     df['asset_return'] += df['dividend'] / base_valor.replace(0, pd.NA)
     df['asset_return'] = pd.to_numeric(df['asset_return'], errors='coerce').fillna(0)
+
+    # USD
+    df['value_usd'] = df['quantity'] * df['price_usd']
+    df['contribution_usd'] = (
+        df.groupby('asset_id')['quantity'].diff().fillna(0) * df['price_usd']
+    )
+    df['net_value_day_usd'] = (
+        df.groupby('date')['value_usd'].transform('sum')
+        - df.groupby('date')['contribution_usd'].transform('sum')
+    )
+
+    df['asset_return_usd'] = df.groupby('asset_id')['price_usd'].pct_change(fill_method=None)
+    base_valor_usd = df['value_usd'] - df['contribution_usd']
+    df['asset_return_usd'] += df['dividend_usd'] / base_valor_usd.replace(0, pd.NA)
+    df['asset_return_usd'] = pd.to_numeric(df['asset_return_usd'], errors='coerce').fillna(0)
 
     return df
 

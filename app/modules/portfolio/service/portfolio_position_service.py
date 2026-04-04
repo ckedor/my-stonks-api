@@ -113,13 +113,18 @@ class PortfolioPositionService:
         return result
 
 
-    async def get_aported_history(self, portfolio_id: int):
+    async def get_aported_history(self, portfolio_id: int, currency: str = 'BRL'):
         transactions_df = await self.repo.get_transactions_df(portfolio_id)
         usd_brl_df = await self.market_data_service.get_usd_brl_history(transactions_df['date'].min())
         transactions_df = transactions_df.merge(usd_brl_df[['date', 'usdbrl']], on='date', how='left')
-        transactions_df['amount'] = transactions_df.apply(
-            lambda row: row['quantity'] * row['price'] * (row['usdbrl'] if row['currency_id'] == CURRENCY.USD else 1), axis=1
-        )
+        if currency == 'USD':
+            transactions_df['amount'] = transactions_df.apply(
+                lambda row: row['quantity'] * row['price'] / (row['usdbrl'] if row['currency_id'] == CURRENCY.BRL else 1), axis=1
+            )
+        else:
+            transactions_df['amount'] = transactions_df.apply(
+                lambda row: row['quantity'] * row['price'] * (row['usdbrl'] if row['currency_id'] == CURRENCY.USD else 1), axis=1
+            )
         total_aported = transactions_df.groupby('date')['amount'].sum().reset_index()
         total_aported.rename(columns={'amount': 'aported'}, inplace=True)
         return total_aported
@@ -131,9 +136,10 @@ class PortfolioPositionService:
         asset_id: int = None, 
         asset_type_id: int = None,
         asset_type_ids: list = None,
+        currency: str = 'BRL',
     ) -> pd.DataFrame:
         return await self.compute_patrimony_evolution(
-            portfolio_id, asset_id, asset_type_id, asset_type_ids,
+            portfolio_id, asset_id, asset_type_id, asset_type_ids, currency=currency,
         )
         
     async def compute_patrimony_evolution(
@@ -141,6 +147,7 @@ class PortfolioPositionService:
         asset_id: int = None, 
         asset_type_id: int = None,
         asset_type_ids: list = None,
+        currency: str = 'BRL',
     ) -> pd.DataFrame:
         portfolio_position_df = await self.repo.get_portfolio_position_df(
             portfolio_id, 
@@ -154,7 +161,8 @@ class PortfolioPositionService:
 
         df = portfolio_position_df.copy()
         df['date'] = pd.to_datetime(df['date'])
-        df['patrimony'] = df['quantity'] * df['price']
+        price_col = 'price_usd' if currency == 'USD' else 'price'
+        df['patrimony'] = df['quantity'] * df[price_col]
 
         total_df = df.groupby('date')['patrimony'].sum().reset_index()
         total_df.rename(columns={'patrimony': 'portfolio'}, inplace=True)
@@ -166,7 +174,7 @@ class PortfolioPositionService:
 
         result = total_df.merge(category_pivot, on='date', how='left')
         
-        aported_history = await self.get_aported_history(portfolio_id)
+        aported_history = await self.get_aported_history(portfolio_id, currency=currency)
         result = result.merge(aported_history[['date', 'aported']], on='date', how='left')
         result['acc_aported'] = (
             result['aported']
@@ -176,11 +184,11 @@ class PortfolioPositionService:
         
         return df_to_dict_list(result)
 
-    async def get_portfolio_returns(self, portfolio_id: int):
-        return await self.repo.get_portfolio_returns(portfolio_id) or None
+    async def get_portfolio_returns(self, portfolio_id: int, currency: str = 'BRL'):
+        return await self.repo.get_portfolio_returns(portfolio_id, currency) or None
 
-    async def get_category_returns(self, portfolio_id: int, custom_category_id: int = None, most_recent: bool = False):
-        return await self.repo.get_category_returns(portfolio_id, custom_category_id, most_recent) or None
+    async def get_category_returns(self, portfolio_id: int, custom_category_id: int = None, most_recent: bool = False, currency: str = 'BRL'):
+        return await self.repo.get_category_returns(portfolio_id, custom_category_id, most_recent, currency) or None
 
     async def get_asset_acc_returns(
         self,
