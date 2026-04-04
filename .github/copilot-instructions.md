@@ -71,6 +71,7 @@ src/
 - **Error handling**: Raise `HTTPException` directly in services/routes.
 - **Caching**: `RedisService` for hot data (patrimony, returns). `@cached` decorator where applicable.
 - **Celery tasks**: Located in `modules/{module}/tasks/`, invoked via `run_task(task_function, *args)`.
+- **Migrations**: Alembic migrations don't work with auto-generate on this repoistory. When creating a new on always create it empty with the command `alembic revision -m "message"`
 
 ### Frontend
 
