@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: FastAPI (uvicorn)",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app.main_fastapi:app",
+        "--host", "127.0.0.1",
+        "--port", "7000",
+        "--reload"
+      ],
+      "jinja": true,
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "preLaunchTask": "Start Dependencies"
+    },
+    {
+      "name": "Run Celery Worker (terminal separado)",
+      "type": "python",
+      "request": "launch",
+      "module": "celery",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "-A", "app.main_celery.celery_app",
+        "worker", 
+        "-l", "info", "--pool=solo", 
+        "--beat"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "justMyCode": false,
+      "preLaunchTask": "Start Dependencies"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + Worker",
+      "configurations": [
+        "Python: FastAPI (uvicorn)",
+        "Run Celery Worker (terminal separado)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

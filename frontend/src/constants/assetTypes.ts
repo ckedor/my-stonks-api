@@ -1,0 +1,15 @@
+export const ASSET_TYPES = {
+  ETF: 1,
+  FII: 2,
+  TREASURY: 3,
+  STOCK: 4,
+  BDR: 5,
+  PREV: 6,
+  FI: 7,
+  CDB: 8,
+  DEB: 9,
+  CRI: 10,
+  CRA: 11,
+  REIT: 12,
+  CRIPTO: 13,
+} as const
