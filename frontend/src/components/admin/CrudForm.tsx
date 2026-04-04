@@ -30,6 +30,7 @@ interface CrudFormProps {
   fields: FieldConfig[]
   initialData?: any
   isEdit?: boolean
+  onFieldChange?: (name: string, value: any) => void
 }
 
 export default function CrudForm({
@@ -40,6 +41,7 @@ export default function CrudForm({
   fields,
   initialData,
   isEdit = false,
+  onFieldChange,
 }: CrudFormProps) {
   const [formData, setFormData] = useState<any>({})
   const [loading, setLoading] = useState(false)
@@ -61,6 +63,7 @@ export default function CrudForm({
 
   const handleChange = (name: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [name]: value }))
+    onFieldChange?.(name, value)
   }
 
   const handleSubmit = async () => {

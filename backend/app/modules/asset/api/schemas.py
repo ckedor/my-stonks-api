@@ -168,6 +168,8 @@ class AssetDetailsOut(BaseModel):
     ticker: Optional[str]
     name: str
     asset_type_id: int
+    currency_id: int
+    exchange_id: Optional[int] = None
 
     currency: CurrencyOut
     asset_type: AssetTypeOut
@@ -217,4 +219,57 @@ class FixedIncomeAsset(BaseModel):
     fixed_income_type_id: int
     asset_type_id: int
     
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssetCreate(BaseModel):
+    ticker: Optional[str] = None
+    name: str
+    asset_type_id: int
+    currency_id: int
+    exchange_id: Optional[int] = None
+
+    # Stock
+    country: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+
+    # FII
+    fii_segment_id: Optional[int] = None
+
+    # ETF
+    etf_segment_id: Optional[int] = None
+
+    # Fixed Income
+    maturity_date: Optional[date] = None
+    fee: Optional[float] = None
+    index_id: Optional[int] = None
+    fixed_income_type_id: Optional[int] = None
+
+    # Investment Fund
+    legal_id: Optional[str] = None
+    anbima_code: Optional[str] = None
+    anbima_code_class: Optional[str] = None
+    anbima_category: Optional[str] = None
+
+    # Treasury Bond
+    treasury_bond_type_id: Optional[int] = None
+
+
+class AssetUpdate(AssetCreate):
+    id: int
+
+
+class ExchangeOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TreasuryBondTypeOut(BaseModel):
+    id: int
+    code: str
+    name: str
+    description: Optional[str]
     model_config = ConfigDict(from_attributes=True)

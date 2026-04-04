@@ -1,3 +1,11 @@
+from typing import List
+
+from app.config.settings import settings
+from app.infra.db.session import get_session
+from app.modules.users.db import get_user_db
+from app.modules.users.manager import UserManager
+from app.modules.users.models import User
+from app.modules.users.schemas import UserCreate, UserRead, UserUpdate
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi_users import FastAPIUsers
 from fastapi_users.authentication import (
@@ -5,12 +13,6 @@ from fastapi_users.authentication import (
     BearerTransport,
     JWTStrategy,
 )
-
-from app.config.settings import settings
-from app.modules.users.db import get_user_db
-from app.modules.users.manager import UserManager
-from app.modules.users.models import User
-from app.modules.users.schemas import UserCreate, UserRead, UserUpdate
 
 
 def get_jwt_strategy() -> JWTStrategy:
@@ -82,3 +84,10 @@ def setup_user_views(app: FastAPI):
         prefix='/users',
         tags=['Usuários'],
     )
+
+    @app.get('/users', response_model=List[UserRead], tags=['Usuários'])
+    async def list_users(session=Depends(get_session)):
+        from sqlalchemy import select
+
+        result = await session.execute(select(User).order_by(User.id))
+        return result.scalars().all()

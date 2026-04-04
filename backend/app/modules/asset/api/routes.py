@@ -9,10 +9,15 @@ from typing import List
 from app.infra.db.session import get_session
 from app.modules.asset.api.schemas import (
     Asset,
+    AssetCreate,
+    AssetDetailsOut,
     AssetEvent,
     AssetType,
+    AssetUpdate,
+    ExchangeOut,
     FixedIncomeAsset,
     FixedIncomeType,
+    TreasuryBondTypeOut,
 )
 from app.modules.asset.service.asset_service import AssetService
 from app.modules.users.views import current_superuser
@@ -38,6 +43,37 @@ async def delete_asset(
     """Delete an asset by ID"""
     service = AssetService(session)
     return await service.delete_asset(asset_id)
+
+
+@router.get('/assets/{asset_id}', response_model=AssetDetailsOut)
+async def get_asset(
+    asset_id: int,
+    session=Depends(get_session),
+):
+    """Get a single asset with all details"""
+    service = AssetService(session)
+    return await service.get_asset(asset_id)
+
+
+@router.post('/asset')
+async def create_asset(
+    data: AssetCreate,
+    session=Depends(get_session),
+):
+    """Create a new asset with subclass data"""
+    service = AssetService(session)
+    return await service.create_asset(data.model_dump())
+
+
+@router.put('/asset/{asset_id}')
+async def update_asset(
+    asset_id: int,
+    data: AssetUpdate,
+    session=Depends(get_session),
+):
+    """Update an asset with subclass data"""
+    service = AssetService(session)
+    return await service.update_asset({**data.model_dump(), 'id': asset_id})
 
 
 @router.get('/types', response_model=List[AssetType])
@@ -115,3 +151,39 @@ async def delete_event(
     service = AssetService(session)
     await service.delete_event(event_id)
     return {'message': 'OK'}
+
+
+@router.get('/exchanges', response_model=List[ExchangeOut])
+async def list_exchanges(
+    session=Depends(get_session),
+):
+    """List all exchanges"""
+    service = AssetService(session)
+    return await service.list_exchanges()
+
+
+@router.get('/etfs/segments')
+async def list_etf_segments(
+    session=Depends(get_session),
+):
+    """List all ETF segments"""
+    service = AssetService(session)
+    return await service.list_etf_segments()
+
+
+@router.get('/treasury_bond/types', response_model=List[TreasuryBondTypeOut])
+async def list_treasury_bond_types(
+    session=Depends(get_session),
+):
+    """List all treasury bond types"""
+    service = AssetService(session)
+    return await service.list_treasury_bond_types()
+
+
+@router.get('/indexes')
+async def list_indexes(
+    session=Depends(get_session),
+):
+    """List all indexes (for fixed income reference)"""
+    service = AssetService(session)
+    return await service.list_indexes()

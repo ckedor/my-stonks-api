@@ -3,14 +3,28 @@
 Asset service - handles asset management operations.
 """
 
-from app.infra.db.models.asset import Asset, AssetType, Event
-from app.infra.db.models.asset_fii import FIISegment
+from app.infra.db.models.asset import Asset, AssetType, Event, Exchange
+from app.infra.db.models.asset_etf import ETF, ETFSegment
+from app.infra.db.models.asset_fii import FII, FIISegment
 from app.infra.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
+from app.infra.db.models.asset_investment_fund import InvestmentFund
+from app.infra.db.models.asset_stock import Stock
+from app.infra.db.models.asset_treasury_bond import TreasuryBond, TreasuryBondType
+from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.market_data import Index
 from app.infra.db.models.portfolio import Transaction
 from app.infra.db.repositories.base_repository import SQLAlchemyRepository
 from app.infra.redis.decorators import cached
 from app.infra.redis.redis_service import RedisService
+from fastapi import HTTPException
+
+STOCK_TYPES = {ASSET_TYPE.STOCK, ASSET_TYPE.BDR}
+FII_TYPES = {ASSET_TYPE.FII}
+ETF_TYPES = {ASSET_TYPE.ETF, ASSET_TYPE.REIT}
+FIXED_INCOME_TYPES = {ASSET_TYPE.CDB, ASSET_TYPE.DEB, ASSET_TYPE.CRI, ASSET_TYPE.CRA, ASSET_TYPE.LCA}
+FUND_TYPES = {ASSET_TYPE.FI, ASSET_TYPE.PREV}
+TREASURY_TYPES = {ASSET_TYPE.TREASURY}
 
 
 class AssetService:
@@ -43,7 +57,6 @@ class AssetService:
         ]
 
     async def delete_asset(self, asset_id: int):
-        ## TODO: Fazer deletes cascade apropriados no BANCO
         await self.repo.delete(FixedIncome, by={"asset_id": asset_id})
         await self.repo.delete(Transaction, by={"asset_id": asset_id})
         await self.repo.delete(Asset, asset_id)
@@ -99,3 +112,117 @@ class AssetService:
     async def delete_event(self, event_id: int):
         await self.repo.delete(Event, event_id)
         await self.session.commit()
+
+    async def get_asset(self, asset_id: int):
+        asset = await self.repo.get(
+            Asset,
+            id=asset_id,
+            relations=['stock', 'fii', 'etf', 'fund', 'fixed_income', 'treasury_bond'],
+        )
+        if not asset:
+            raise HTTPException(status_code=404, detail='Asset not found')
+        return asset
+
+    async def create_asset(self, data: dict):
+        asset_type_id = data['asset_type_id']
+        asset_obj = {
+            'ticker': data.get('ticker'),
+            'name': data['name'],
+            'asset_type_id': asset_type_id,
+            'currency_id': data['currency_id'],
+            'exchange_id': data.get('exchange_id'),
+        }
+        asset_ids = await self.repo.create(Asset, asset_obj)
+        asset_id = asset_ids[0]
+
+        await self._create_subclass(asset_type_id, asset_id, data)
+        await self.session.commit()
+        return {'message': 'OK', 'id': asset_id}
+
+    async def update_asset(self, data: dict):
+        asset_id = data['id']
+        asset_type_id = data['asset_type_id']
+
+        asset = await self.repo.get(Asset, id=asset_id)
+        if not asset:
+            raise HTTPException(status_code=404, detail='Asset not found')
+
+        asset.ticker = data.get('ticker')
+        asset.name = data['name']
+        asset.asset_type_id = asset_type_id
+        asset.currency_id = data['currency_id']
+        asset.exchange_id = data.get('exchange_id')
+
+        # Delete old subclass rows then recreate
+        await self._delete_subclass(asset_id)
+        await self._create_subclass(asset_type_id, asset_id, data)
+
+        await self.session.commit()
+        return {'message': 'OK'}
+
+    async def _create_subclass(self, asset_type_id: int, asset_id: int, data: dict):
+        if asset_type_id in STOCK_TYPES:
+            await self.repo.create(Stock, {
+                'asset_id': asset_id,
+                'country': data.get('country'),
+                'sector': data.get('sector'),
+                'industry': data.get('industry'),
+            })
+        elif asset_type_id in FII_TYPES:
+            if data.get('fii_segment_id'):
+                await self.repo.create(FII, {
+                    'asset_id': asset_id,
+                    'segment_id': data['fii_segment_id'],
+                })
+        elif asset_type_id in ETF_TYPES:
+            await self.repo.create(ETF, {
+                'asset_id': asset_id,
+                'segment_id': data.get('etf_segment_id'),
+            })
+        elif asset_type_id in FIXED_INCOME_TYPES:
+            await self.repo.create(FixedIncome, {
+                'asset_id': asset_id,
+                'maturity_date': data.get('maturity_date'),
+                'fee': data.get('fee'),
+                'index_id': data.get('index_id'),
+                'fixed_income_type_id': data.get('fixed_income_type_id'),
+            })
+        elif asset_type_id in FUND_TYPES:
+            await self.repo.create(InvestmentFund, {
+                'asset_id': asset_id,
+                'legal_id': data.get('legal_id'),
+                'anbima_code': data.get('anbima_code'),
+                'anbima_code_class': data.get('anbima_code_class'),
+                'anbima_category': data.get('anbima_category'),
+            })
+        elif asset_type_id in TREASURY_TYPES:
+            if data.get('treasury_bond_type_id'):
+                await self.repo.create(TreasuryBond, {
+                    'asset_id': asset_id,
+                    'maturity_date': data.get('maturity_date'),
+                    'fee': data.get('fee'),
+                    'type_id': data['treasury_bond_type_id'],
+                })
+
+    async def _delete_subclass(self, asset_id: int):
+        for model in [Stock, FII, ETF, FixedIncome, InvestmentFund]:
+            try:
+                await self.repo.delete(model, by={'asset_id': asset_id})
+            except Exception:
+                pass
+        try:
+            await self.repo.delete(TreasuryBond, by={'asset_id': asset_id})
+        except Exception:
+            pass
+
+    async def list_exchanges(self):
+        return await self.repo.get(Exchange)
+
+    async def list_etf_segments(self):
+        return await self.repo.get(ETFSegment)
+
+    async def list_treasury_bond_types(self):
+        return await self.repo.get(TreasuryBondType)
+
+    async def list_indexes(self):
+        return await self.repo.get(Index)
