@@ -67,7 +67,7 @@ export const MOCK_PIE_DATA = [
 ]
 
 export const MOCK_TABLE_COLUMNS = [
-  { key: 'ticker', label: 'Ativo' },
+  { key: 'ticker', label: 'Ativo', type: 'text' as const },
   { key: 'quantity', label: 'Qtd', type: 'number' as const },
   { key: 'price', label: 'Preço', type: 'currency' as const, decimals: true },
   { key: 'value', label: 'Total', type: 'currency' as const, decimals: true },

@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Python: FastAPI (uvicorn)",
-      "type": "python",
+      "type": "debugpy",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
       "request": "launch",
       "module": "uvicorn",
@@ -22,7 +22,7 @@
     },
     {
       "name": "Run Celery Worker",
-      "type": "python",
+      "type": "debugpy",
       "python": "${workspaceFolder}/backend/.venv/bin/python",
       "request": "launch",
       "module": "celery",
