@@ -40,11 +40,11 @@ export const fetchCategoryReturns = (
   return api.get<CategoryReturnEntry[]>(`/portfolio/${portfolioId}/category/returns${qs ? `?${qs}` : ''}`).then((r) => r.data ?? [])
 }
 
-export const fetchCategoryAnalysis = (portfolioId: number, categoryId: number): Promise<AssetAnalysis> =>
-  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/category/${categoryId}/analysis`).then((r) => r.data)
+export const fetchCategoryAnalysis = (portfolioId: number, categoryId: number, currency: string = 'BRL'): Promise<AssetAnalysis> =>
+  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/category/${categoryId}/analysis`, { params: { currency } }).then((r) => r.data)
 
-export const fetchAssetReturns = (portfolioId: number, assetId: number): Promise<Record<string, ReturnsEntry[]>> =>
-  api.get(`/portfolio/${portfolioId}/asset/${assetId}/returns`).then((r) => {
+export const fetchAssetReturns = (portfolioId: number, assetId: number, currency: string = 'BRL'): Promise<Record<string, ReturnsEntry[]>> =>
+  api.get(`/portfolio/${portfolioId}/asset/${assetId}/returns`, { params: { currency } }).then((r) => {
     const rows: Record<string, any>[] = r.data?.data ?? r.data ?? []
     // df_response returns [{date, TICKER: value, ...}, ...] — pivot to {TICKER: [{date, value}]}
     const result: Record<string, ReturnsEntry[]> = {}
@@ -59,14 +59,14 @@ export const fetchAssetReturns = (portfolioId: number, assetId: number): Promise
     return result
   })
 
-export const fetchAssetDetails = (portfolioId: number, assetId: number) =>
-  api.get(`/portfolio/${portfolioId}/asset/${assetId}/details`).then((r) => r.data)
+export const fetchAssetDetails = (portfolioId: number, assetId: number, currency: string = 'BRL') =>
+  api.get(`/portfolio/${portfolioId}/asset/${assetId}/details`, { params: { currency } }).then((r) => r.data)
 
-export const fetchAssetAnalysis = (portfolioId: number, assetId: number): Promise<AssetAnalysis | null> =>
-  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/asset/${assetId}/analysis`).then((r) => r.data).catch(() => null)
+export const fetchAssetAnalysis = (portfolioId: number, assetId: number, currency: string = 'BRL'): Promise<AssetAnalysis | null> =>
+  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/asset/${assetId}/analysis`, { params: { currency } }).then((r) => r.data).catch(() => null)
 
-export const fetchAnalysis = (portfolioId: number): Promise<AssetAnalysis> =>
-  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/analysis`).then((r) => r.data)
+export const fetchAnalysis = (portfolioId: number, currency: string = 'BRL'): Promise<AssetAnalysis> =>
+  api.get<AssetAnalysis>(`/portfolio/${portfolioId}/analysis`, { params: { currency } }).then((r) => r.data)
 
 export const consolidatePortfolio = (portfolioId: number): Promise<void> =>
   api.post(`/portfolio/${portfolioId}/consolidate`).then(() => undefined)

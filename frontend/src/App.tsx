@@ -4,6 +4,7 @@ import { initAuth } from "./actions/auth";
 import MainLayout from "./layouts/MainLayout";
 import AdminAssetsPage from "./pages/admin/assets/page";
 import AdminBrokersPage from "./pages/admin/brokers/page";
+import DesignSystemPage from "./pages/admin/design-system/page";
 import AdminEventsPage from "./pages/admin/events/page";
 import AdminLayout from "./pages/admin/layout";
 import AdminUsersPage from "./pages/admin/users/page";
@@ -53,6 +54,7 @@ const router = createBrowserRouter([
       { path: "brokers", element: <AdminBrokersPage /> },
       { path: "events", element: <AdminEventsPage /> },
       { path: "users", element: <AdminUsersPage /> },
+      { path: "design-system", element: <DesignSystemPage /> },
       { index: true, element: <Navigate to="/admin/assets" replace /> },
     ],
   },

@@ -36,7 +36,7 @@ async def get_portfolio_position(
     service = PortfolioPositionService(session)
     if most_recent:
         return await service.get_portfolio_position(portfolio_id, group_by_broker=group_by_broker, currency=currency)
-    return await service.get_portfolio_position_history(portfolio_id, asset_id)
+    return await service.get_portfolio_position_history(portfolio_id, asset_id, currency=currency)
 
 
 @router.get('/{portfolio_id}/patrimony_evolution', tags=['Portfolio Data'])
@@ -55,10 +55,11 @@ async def get_patrimony_evolution(
 @router.get('/{portfolio_id}/analysis', tags=['Portfolio Data'])
 async def get_portfolio_analysis(
     portfolio_id: int,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_portfolio_stats(portfolio_id)
+    return await service.get_portfolio_stats(portfolio_id, currency=currency)
 
 
 # --- Portfolio Category Data ---
@@ -80,10 +81,11 @@ async def get_category_returns(
 async def get_category_analysis(
     portfolio_id: int,
     category_id: int,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_category_stats(portfolio_id, category_id)
+    return await service.get_category_stats(portfolio_id, category_id, currency=currency)
 
 
 # --- Portfolio Asset Data ---
@@ -95,10 +97,11 @@ async def get_asset_returns(
     asset_id: int,
     start_date: str = None,
     end_date: str = None,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    asset_returns = await service.get_asset_acc_returns(portfolio_id, [asset_id], start_date, end_date)
+    asset_returns = await service.get_asset_acc_returns(portfolio_id, [asset_id], start_date, end_date, currency=currency)
     if asset_returns is None:
         return []
     return df_response(asset_returns)
@@ -108,17 +111,19 @@ async def get_asset_returns(
 async def get_asset_details(
     portfolio_id: int,
     asset_id: int,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_asset_details(portfolio_id, asset_id)
+    return await service.get_asset_details(portfolio_id, asset_id, currency=currency)
 
 
 @router.get('/{portfolio_id}/asset/{asset_id}/analysis', tags=['Portfolio Asset Data'])
 async def get_asset_analysis(
     portfolio_id: int,
     asset_id: int,
+    currency: str = Query('BRL'),
     session=Depends(get_session),
 ):
     service = PortfolioPositionService(session)
-    return await service.get_asset_analysis(portfolio_id, asset_id)
+    return await service.get_asset_analysis(portfolio_id, asset_id, currency=currency)

@@ -38,6 +38,7 @@ function usePortfolioSync() {
       syncDividends(selectedPortfolioId, true)
       syncPatrimony(selectedPortfolioId, true)
       syncReturns(selectedPortfolioId, true)
+      syncAnalysis(selectedPortfolioId, true)
     }
     prevCurrency.current = currency
   }, [currency, selectedPortfolioId])

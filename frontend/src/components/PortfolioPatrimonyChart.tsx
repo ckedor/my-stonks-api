@@ -36,7 +36,7 @@ export default function PortfolioPatrimonyChart({
   const key = selected === 'Carteira' ? 'portfolio' : selected
 
   const theme = useTheme()
-  const { symbol } = useCurrency()
+  const { symbol, locale } = useCurrency()
   const gridColor = theme.palette.chart.grid
   const labelColor = theme.palette.chart.label
   const lineColor = theme.palette.primary.main
@@ -247,10 +247,10 @@ export default function PortfolioPatrimonyChart({
             tick={{ fill: labelColor, fontSize: 12 }}
             tickFormatter={(v: number) =>
               v >= 1000000
-                ? `${(v / 1000000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}M`
+                ? `${(v / 1000000).toLocaleString(locale, { maximumFractionDigits: 1 })}M`
                 : v >= 1000
-                  ? `${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}K`
-                  : v.toLocaleString('pt-BR')
+                  ? `${(v / 1000).toLocaleString(locale, { maximumFractionDigits: 0 })}K`
+                  : v.toLocaleString(locale)
             }
             ticks={yTicks}
             domain={yDomain}
@@ -259,7 +259,7 @@ export default function PortfolioPatrimonyChart({
           <Tooltip
             labelFormatter={(v) => dayjs(v as number).format('DD/MM/YY')}
             formatter={(value: number) =>
-              `${symbol} ${value.toLocaleString('pt-BR', {
+              `${symbol} ${value.toLocaleString(locale, {
                 maximumFractionDigits: 0,
               })}`
             }

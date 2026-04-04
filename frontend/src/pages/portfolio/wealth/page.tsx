@@ -2,6 +2,7 @@
 import PortfolioPatrimonyChart from '@/components/PortfolioPatrimonyChart'
 import AppCard from '@/components/ui/AppCard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { useCurrency } from '@/hooks/useCurrency'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { usePatrimonyStore } from '@/stores/portfolio/patrimony'
 import {
@@ -25,6 +26,7 @@ import PortfolioMonthlyAportsChart from './PortfolioMonthlyAportsChart'
 export default function PortfolioPatrimonyEvolution() {
   const selectedPortfolio = usePortfolioStore(s => s.selectedPortfolio)
   const userCategories = selectedPortfolio?.custom_categories ?? []
+  const { symbol } = useCurrency()
 
   const patrimonyEvolution = usePatrimonyStore(s => s.patrimony)
   const patrimonyLoading = usePatrimonyStore(s => s.loading) && patrimonyEvolution.length === 0
@@ -183,7 +185,7 @@ export default function PortfolioPatrimonyEvolution() {
               size="small"
               InputProps={{
                 inputProps: { min: 0, step: 100 },
-                startAdornment: <span style={{ marginRight: 4 }}>R$</span>,
+                startAdornment: <span style={{ marginRight: 4 }}>{symbol}</span>,
               }}
               sx={{ width: 120 }}
             />

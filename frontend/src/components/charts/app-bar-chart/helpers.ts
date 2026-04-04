@@ -3,7 +3,7 @@ import dayjs from "dayjs"
 import { RangeOption } from "../shared/DateRangeMenu"
 import { TimeSeriesPoint } from "./AppBarChart"
 
-export type GroupBy = 'day' | 'month' | 'year'
+export type GroupBy = 'day' | 'week' | 'month' | 'year'
 export type LabelSide = 'left' | 'right'
 export type ColorMode = 'profit-loss' | 'single'
 export type ValueType = 'percent' | 'currency' | 'number'
@@ -28,6 +28,8 @@ export function groupTimeSeries(
     const key =
       groupBy === 'day'
         ? d.format('YYYY-MM-DD')
+        : groupBy === 'week'
+        ? d.startOf('week').format('YYYY-MM-DD')
         : groupBy === 'month'
         ? d.format('YYYY-MM-01')
         : d.format('YYYY-01-01')

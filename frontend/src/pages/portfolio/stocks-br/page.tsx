@@ -5,6 +5,7 @@ import Trades from '@/components/Trades'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { ASSET_TYPES } from '@/constants/assetTypes'
 import { useCachedData } from '@/hooks/useCachedData'
+import { useCurrency } from '@/hooks/useCurrency'
 import api from '@/lib/api'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { PatrimonyEntry, StockPortfolioPositionEntry } from '@/types'
@@ -30,17 +31,20 @@ import StocksTable from './StocksTable'
 export default function StocksBrPage() {
   const selectedPortfolio = usePortfolioStore(s => s.selectedPortfolio)
   const portfolioId = selectedPortfolio?.id
+  const { currency } = useCurrency()
 
   const { data: positionData } = useCachedData<StockPortfolioPositionEntry[]>(
-    portfolioId ? `stocks-br:positions:${portfolioId}` : null,
-    useCallback(() => api.get(`/portfolio/${portfolioId}/brl_stocks/position`).then(r => r.data), [portfolioId]),
+    portfolioId ? `stocks-br:positions:${portfolioId}:${currency}` : null,
+    useCallback(() => api.get(`/portfolio/${portfolioId}/brl_stocks/position`, {
+      params: { currency },
+    }).then(r => r.data), [portfolioId, currency]),
     { enabled: !!portfolioId },
   )
   const { data: patrimonyData } = useCachedData<PatrimonyEntry[]>(
-    portfolioId ? `stocks-br:patrimony:${portfolioId}` : null,
+    portfolioId ? `stocks-br:patrimony:${portfolioId}:${currency}` : null,
     useCallback(() => api.get(`/portfolio/${portfolioId}/patrimony_evolution`, {
-      params: { asset_type_ids: [ASSET_TYPES.STOCK, ASSET_TYPES.BDR, ASSET_TYPES.ETF], currency_id: 1 },
-    }).then(r => r.data), [portfolioId]),
+      params: { asset_type_ids: [ASSET_TYPES.STOCK, ASSET_TYPES.BDR, ASSET_TYPES.ETF], currency_id: 1, currency },
+    }).then(r => r.data), [portfolioId, currency]),
     { enabled: !!portfolioId },
   )
 

@@ -48,7 +48,7 @@ const LABELS = {
 
 export default function AssetAveragePriceChart({ size, assetId }: Props) {
   const selectedPortfolio = usePortfolioStore(s => s.selectedPortfolio)
-  const { format: fmtCurrency } = useCurrency()
+  const { currency, format: fmtCurrency } = useCurrency()
   const [history, setHistory] = useState<PositionHistoryEntry[]>([])
   const [transactions, setTransactions] = useState<TransactionEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,7 +69,7 @@ export default function AssetAveragePriceChart({ size, assetId }: Props) {
       setLoading(true)
       try {
         const [historyRes, transactionsRes] = await Promise.all([
-          api.get(`/portfolio/${selectedPortfolio.id}/position?most_recent=false&asset_id=${assetId}`),
+          api.get(`/portfolio/${selectedPortfolio.id}/position?most_recent=false&asset_id=${assetId}&currency=${currency}`),
           api.get(`/portfolio/transaction/${selectedPortfolio.id}?asset_id=${assetId}`),
         ])
 
@@ -94,7 +94,7 @@ export default function AssetAveragePriceChart({ size, assetId }: Props) {
     }
 
     fetchData()
-  }, [selectedPortfolio?.id, assetId])
+  }, [selectedPortfolio?.id, assetId, currency])
 
   const mergedData = history.map((h) => {
     const transaction = transactions.find((t) => t.date === h.date)

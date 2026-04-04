@@ -140,9 +140,10 @@ export async function syncBenchmarks(force = false): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function syncAnalysis(portfolioId: number, force = false): Promise<void> {
+  const currency = useCurrencyStore.getState().currency
   await staleWhileRevalidate({
-    cacheKey: `analysis:${portfolioId}`,
-    fetcher: () => fetchAnalysis(portfolioId),
+    cacheKey: `analysis:${portfolioId}:${currency}`,
+    fetcher: () => fetchAnalysis(portfolioId, currency),
     force,
     onLoadingChange: (loading) => useAnalysisStore.setState({ loading }),
     onHydrate: (data) => useAnalysisStore.getState().setAnalysis(data),

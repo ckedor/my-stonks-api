@@ -5,6 +5,7 @@ import Trades from '@/components/Trades'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { ASSET_TYPES } from '@/constants/assetTypes'
 import { useCachedData } from '@/hooks/useCachedData'
+import { useCurrency } from '@/hooks/useCurrency'
 import api from '@/lib/api'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { Dividend, FIIPortfolioPositionEntry, PatrimonyEntry } from '@/types'
@@ -31,24 +32,27 @@ import FIIsTable from './FIIsTable'
 export default function FIIsPage() {
   const selectedPortfolio = usePortfolioStore(s => s.selectedPortfolio)
   const portfolioId = selectedPortfolio?.id
+  const { currency } = useCurrency()
 
   const { data: fiiData } = useCachedData<FIIPortfolioPositionEntry[]>(
-    portfolioId ? `fii:positions:${portfolioId}` : null,
-    useCallback(() => api.get(`/portfolio/${portfolioId}/fii/position`).then(r => r.data), [portfolioId]),
+    portfolioId ? `fii:positions:${portfolioId}:${currency}` : null,
+    useCallback(() => api.get(`/portfolio/${portfolioId}/fii/position`, {
+      params: { currency },
+    }).then(r => r.data), [portfolioId, currency]),
     { enabled: !!portfolioId },
   )
   const { data: dividendsData } = useCachedData<Dividend[]>(
-    portfolioId ? `fii:dividends:${portfolioId}` : null,
+    portfolioId ? `fii:dividends:${portfolioId}:${currency}` : null,
     useCallback(() => api.get(`/portfolio/dividends/${portfolioId}`, {
-      params: { asset_type_id: ASSET_TYPES.FII },
-    }).then(r => r.data), [portfolioId]),
+      params: { asset_type_id: ASSET_TYPES.FII, currency },
+    }).then(r => r.data), [portfolioId, currency]),
     { enabled: !!portfolioId },
   )
   const { data: patrimonyData } = useCachedData<PatrimonyEntry[]>(
-    portfolioId ? `fii:patrimony:${portfolioId}` : null,
+    portfolioId ? `fii:patrimony:${portfolioId}:${currency}` : null,
     useCallback(() => api.get(`/portfolio/${portfolioId}/patrimony_evolution`, {
-      params: { asset_type_id: ASSET_TYPES.FII },
-    }).then(r => r.data), [portfolioId]),
+      params: { asset_type_id: ASSET_TYPES.FII, currency },
+    }).then(r => r.data), [portfolioId, currency]),
     { enabled: !!portfolioId },
   )
 

@@ -1,5 +1,6 @@
 import AppBarChart, { TimeSeriesPoint } from '@/components/charts/app-bar-chart/AppBarChart'
 import { GroupBy } from '@/components/charts/app-bar-chart/helpers'
+import { useCurrency } from '@/hooks/useCurrency'
 import { DateRangeKey } from '@/lib/utils/date'
 import { usePatrimonyStore } from '@/stores/portfolio/patrimony'
 import dayjs from 'dayjs'
@@ -35,6 +36,7 @@ export default function PortfolioMonthlyAportsChart({
 }: Props) {
   const rows = usePatrimonyStore(s => s.patrimony) as PatrimonyEvolutionRow[]
   const loading = usePatrimonyStore(s => s.loading)
+  const { currency, locale } = useCurrency()
 
   const sourceKey = 'aported'
 
@@ -49,7 +51,8 @@ export default function PortfolioMonthlyAportsChart({
       emptyMessage="Sem dados de aportes para exibir."
       colorMode="profit-loss"
       valueType="currency"
-      currency="BRL"
+      currency={currency}
+      locale={locale}
       groupBy={groupBy}
       showRangePicker
       defaultRange={defaultRange}

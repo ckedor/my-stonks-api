@@ -1,4 +1,5 @@
 
+import { useCurrency } from '@/hooks/useCurrency'
 import api from '@/lib/api'
 import { usePortfolioStore } from '@/stores/portfolio'
 import { Asset } from '@/types'
@@ -42,6 +43,7 @@ interface DividendFormProps {
 
 export default function DividendForm({ open, onClose, onSave, initialAsset, dividend }: DividendFormProps) {
   const selectedPortfolio = usePortfolioStore(s => s.selectedPortfolio)
+  const { symbol } = useCurrency()
 
   const [portfolioId, setPortfolioId] = useState<number | ''>('')
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null)
@@ -170,7 +172,7 @@ export default function DividendForm({ open, onClose, onSave, initialAsset, divi
             <DatePicker label="Data" value={date} onChange={setDate} />
 
             <TextField
-              label="Valor do Provento (R$)"
+              label={`Valor do Provento (${symbol})`}
               type="number"
               value={amount}
               onChange={(e) => {

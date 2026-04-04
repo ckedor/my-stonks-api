@@ -11,6 +11,7 @@ import RiskMetricsPanel from '@/components/RiskMetricsPanel'
 import RollingCagrChart from '@/components/RollingCagrChart'
 import Trades from '@/components/Trades'
 import { useCachedData } from '@/hooks/useCachedData'
+import { useCurrency } from '@/hooks/useCurrency'
 import api from '@/lib/api'
 import { useDataCacheStore } from '@/stores/data-cache'
 import { useReturnsStore } from '@/stores/portfolio/returns'
@@ -60,16 +61,17 @@ export default function AssetDetailPanel({ assetId, portfolioId }: AssetDetailPa
   const [dividendFormOpen, setDividendFormOpen] = useState(false)
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' })
   const { openTradeForm } = useTradeFormStore()
+  const { currency } = useCurrency()
 
-  const cacheKey = `asset-detail:${portfolioId}:${assetId}`
+  const cacheKey = `asset-detail:${portfolioId}:${assetId}:${currency}`
 
   const fetcher = useCallback(async () => {
     const [asset, patrimonyRes, dividendRes, analysis, assetReturnsMap] = await Promise.all([
-      fetchAssetDetails(portfolioId, assetId),
-      api.get(`/portfolio/${portfolioId}/patrimony_evolution?asset_id=${assetId}`),
-      api.get(`/portfolio/dividends/${portfolioId}/?asset_id=${assetId}`),
-      fetchAssetAnalysis(portfolioId, assetId),
-      fetchAssetReturns(portfolioId, assetId).catch(() => ({})),
+      fetchAssetDetails(portfolioId, assetId, currency),
+      api.get(`/portfolio/${portfolioId}/patrimony_evolution`, { params: { asset_id: assetId, currency } }),
+      api.get(`/portfolio/dividends/${portfolioId}/`, { params: { asset_id: assetId, currency } }),
+      fetchAssetAnalysis(portfolioId, assetId, currency),
+      fetchAssetReturns(portfolioId, assetId, currency).catch(() => ({})),
     ])
     if (Object.keys(assetReturnsMap).length > 0) {
       useReturnsStore.getState().addAssetReturns(assetReturnsMap)
@@ -80,7 +82,7 @@ export default function AssetDetailPanel({ assetId, portfolioId }: AssetDetailPa
       dividends: dividendRes.data,
       analysis,
     }
-  }, [portfolioId, assetId])
+  }, [portfolioId, assetId, currency])
 
   const { data: assetBundle } = useCachedData<{ asset: Asset; patrimony: any[]; dividends: Dividend[]; analysis: AssetAnalysis | null }>(
     cacheKey,
@@ -94,11 +96,11 @@ export default function AssetDetailPanel({ assetId, portfolioId }: AssetDetailPa
       await recalculateAssetPosition(portfolioId, assetId)
       // Fetch all data without intermediate store updates
       const [freshAsset, patrimonyRes, dividendRes, freshAnalysis, assetReturnsMap] = await Promise.all([
-        fetchAssetDetails(portfolioId, assetId),
-        api.get(`/portfolio/${portfolioId}/patrimony_evolution?asset_id=${assetId}`),
-        api.get(`/portfolio/dividends/${portfolioId}/?asset_id=${assetId}`),
-        fetchAssetAnalysis(portfolioId, assetId),
-        fetchAssetReturns(portfolioId, assetId).catch(() => ({})),
+        fetchAssetDetails(portfolioId, assetId, currency),
+        api.get(`/portfolio/${portfolioId}/patrimony_evolution`, { params: { asset_id: assetId, currency } }),
+        api.get(`/portfolio/dividends/${portfolioId}/`, { params: { asset_id: assetId, currency } }),
+        fetchAssetAnalysis(portfolioId, assetId, currency),
+        fetchAssetReturns(portfolioId, assetId, currency).catch(() => ({})),
       ])
       const fresh = { asset: freshAsset, patrimony: patrimonyRes.data, dividends: dividendRes.data, analysis: freshAnalysis }
       // Batch all store + state updates together

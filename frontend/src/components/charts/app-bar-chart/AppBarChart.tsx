@@ -234,6 +234,7 @@ export function AppBarChart({
                 onChange={(e) => setCurrentGroupBy(e.target.value as GroupBy)}
               >
                 <MenuItem value="day">Diário</MenuItem>
+                <MenuItem value="week">Semanal</MenuItem>
                 <MenuItem value="month">Mensal</MenuItem>
                 <MenuItem value="year">Anual</MenuItem>
               </Select>

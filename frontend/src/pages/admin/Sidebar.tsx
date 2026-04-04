@@ -11,6 +11,7 @@ import {
 
 import BusinessIcon from '@mui/icons-material/Business'
 import EventIcon from '@mui/icons-material/Event'
+import PaletteIcon from '@mui/icons-material/Palette'
 import PeopleIcon from '@mui/icons-material/People'
 import TokenIcon from '@mui/icons-material/Token'
 
@@ -25,6 +26,7 @@ const menuItems = [
   { text: 'Corretoras', icon: <BusinessIcon fontSize="small" />, path: '/admin/brokers' },
   { text: 'Eventos', icon: <EventIcon fontSize="small" />, path: '/admin/events' },
   { text: 'Usuários', icon: <PeopleIcon fontSize="small" />, path: '/admin/users' },
+  { text: 'Design System', icon: <PaletteIcon fontSize="small" />, path: '/admin/design-system' },
 ]
 
 export default function AdminSidebar({
