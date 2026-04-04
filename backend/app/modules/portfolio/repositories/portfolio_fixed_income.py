@@ -1,6 +1,5 @@
 
 import pandas as pd
-
 from app.infra.db.models.asset import Asset
 from app.infra.db.models.asset_fii import FII, FIISegment, FIIType
 from app.infra.db.models.asset_fixed_income import FixedIncome, FixedIncomeType
@@ -51,6 +50,8 @@ class PortfolioFixedIncomeRepository(PortfolioRepository):
                 'twelve_months_return',
                 'acc_return',
                 'daily_return',
+                'cagr',
+                'total_invested',
                 'dividend',
                 'category',
                 'type',

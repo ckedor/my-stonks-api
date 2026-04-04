@@ -1,3 +1,4 @@
+from app.infra.db.base import Base
 from sqlalchemy import (
     Column,
     Date,
@@ -8,8 +9,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
-
-from app.infra.db.base import Base
 
 
 class Exchange(Base):
@@ -86,10 +85,8 @@ class Asset(Base):
     ticker = Column(String(30), nullable=True)
     name = Column(String(200), nullable=False)
     asset_type_id = Column(Integer, ForeignKey('asset.asset_type.id'), nullable=False)
-    currency_id = Column(Integer, ForeignKey('asset.currency.id'), nullable=False)
     exchange_id = Column(Integer, ForeignKey('asset.exchange.id'), nullable=True)
 
-    currency = relationship('Currency', lazy='joined')
     asset_type = relationship('AssetType', lazy='joined')
     exchange = relationship('Exchange', lazy='joined')
 

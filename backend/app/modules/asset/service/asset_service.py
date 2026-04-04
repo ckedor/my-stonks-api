@@ -11,7 +11,6 @@ from app.infra.db.models.asset_investment_fund import InvestmentFund
 from app.infra.db.models.asset_stock import Stock
 from app.infra.db.models.asset_treasury_bond import TreasuryBond, TreasuryBondType
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
-from app.infra.db.models.constants.currency import CURRENCY
 from app.infra.db.models.market_data import Index
 from app.infra.db.models.portfolio import Transaction
 from app.infra.db.repositories.base_repository import SQLAlchemyRepository
@@ -73,7 +72,6 @@ class AssetService:
             "ticker": fixed_income.get('ticker'),
             "name": fixed_income.get('name'),
             "asset_type_id": fixed_income.get('asset_type_id'),
-            "currency_id": CURRENCY.BRL,
         }
         asset_ids = await self.repo.create(Asset, asset_obj)
         
@@ -129,7 +127,6 @@ class AssetService:
             'ticker': data.get('ticker'),
             'name': data['name'],
             'asset_type_id': asset_type_id,
-            'currency_id': data['currency_id'],
             'exchange_id': data.get('exchange_id'),
         }
         asset_ids = await self.repo.create(Asset, asset_obj)
@@ -150,7 +147,6 @@ class AssetService:
         asset.ticker = data.get('ticker')
         asset.name = data['name']
         asset.asset_type_id = asset_type_id
-        asset.currency_id = data['currency_id']
         asset.exchange_id = data.get('exchange_id')
 
         # Delete old subclass rows then recreate

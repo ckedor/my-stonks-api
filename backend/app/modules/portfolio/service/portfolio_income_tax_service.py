@@ -4,7 +4,6 @@ Portfolio income tax service - handles tax calculations and reports.
 """
 
 import pandas as pd
-
 from app.domain.finance.trade import profits_by_month_df
 from app.domain.income_tax.tax_income_calculator import TaxIncomeCalculator
 from app.infra.db.models.asset import Event
@@ -23,13 +22,13 @@ class PortfolioIncomeTaxService:
         last_day_fiscal_year = pd.to_datetime(f'{fiscal_year}-12-31')
         last_day_previous_year = pd.to_datetime(f'{fiscal_year - 1}-12-31')
 
-        position_dec_fy = await self.repo.get_position_on_date(portfolio_id, last_day_fiscal_year)
-        position_dec_prev = await self.repo.get_position_on_date(portfolio_id, last_day_previous_year)
+        position_dec_fy = await self.repo.get_position_on_date_by_broker(portfolio_id, last_day_fiscal_year)
+        position_dec_prev = await self.repo.get_position_on_date_by_broker(portfolio_id, last_day_previous_year)
 
         df = pd.merge(
             position_dec_fy,
             position_dec_prev,
-            on=['asset_id', 'ticker'],
+            on=['asset_id', 'ticker', 'broker_id'],
             how='outer',
             suffixes=('_fiscal_year', '_previous_year'),
         )
@@ -39,6 +38,8 @@ class PortfolioIncomeTaxService:
         df['category'] = df['category_fiscal_year'].combine_first(df['category_previous_year'])
         df['currency_id'] = df['currency_id_fiscal_year'].combine_first(df['currency_id_previous_year'])
         df['name'] = df['name_fiscal_year'].combine_first(df['name_previous_year'])
+        df['broker_name'] = df['broker_name_fiscal_year'].combine_first(df['broker_name_previous_year'])
+        df['broker_cnpj'] = df['broker_cnpj_fiscal_year'].combine_first(df['broker_cnpj_previous_year'])
 
         df['price_fiscal_year'] = df['price_fiscal_year'].fillna(0.0)
         df['price_previous_year'] = df['price_previous_year'].fillna(0.0)
@@ -60,12 +61,13 @@ class PortfolioIncomeTaxService:
         df['codigo_negociacao'] = df['ticker']
         df['negociado_em_bolsa'] = df['type_id'].apply(self._is_traded_on_exchange)
         df['locale'] = df.apply(self._map_locale, axis=1)
-        df['cnpj'] = '02.332.886/0001-04' # TODO: Agrupar posição por corretora
+        df['cnpj'] = df['broker_cnpj']
 
         final_df = df[[
             'grupo', 'codigo', 'discriminacao',
             'position_previous_year', 'position_fiscal_year',
-            'codigo_negociacao', 'negociado_em_bolsa', 'locale', 'cnpj'
+            'codigo_negociacao', 'negociado_em_bolsa', 'locale', 'cnpj',
+            'broker_name',
         ]]
 
         return df_response(final_df)
@@ -138,34 +140,35 @@ class PortfolioIncomeTaxService:
 
     @staticmethod
     def _map_description(row):
+        broker = row.get('broker_name', '')
         if row['type_id'] == ASSET_TYPE.CRIPTO:
-            return f"Criptoativo {row['name']} ({row['ticker']}), armazenado em exchange nacional."
+            return f"Criptoativo {row['name']} ({row['ticker']}), armazenado em {broker}."
         if row['type_id'] == ASSET_TYPE.CDB:
-            return f"CDB {row['name']} ({row['ticker']}), adquirido via corretora brasileira."
+            return f"CDB {row['name']} ({row['ticker']}), adquirido via {broker}."
         if row['type_id'] == ASSET_TYPE.TREASURY:
-            return f"Título público {row['name']} ({row['ticker']}), adquirido via Tesouro Direto."
+            return f"Título público {row['name']} ({row['ticker']}), adquirido via Tesouro Direto ({broker})."
         if row['type_id'] == ASSET_TYPE.CRA:
-            return f"CRA {row['name']} ({row['ticker']}), isento de IR, adquirido via corretora brasileira."
+            return f"CRA {row['name']} ({row['ticker']}), isento de IR, adquirido via {broker}."
         if row['type_id'] == ASSET_TYPE.CRI:
-            return f"CRI {row['name']} ({row['ticker']}), isento de IR, adquirido via corretora brasileira."
+            return f"CRI {row['name']} ({row['ticker']}), isento de IR, adquirido via {broker}."
         if row['type_id'] == ASSET_TYPE.DEB:
-            return f"Debênture {row['name']} ({row['ticker']}), adquirida via corretora brasileira."
+            return f"Debênture {row['name']} ({row['ticker']}), adquirida via {broker}."
         if row['type_id'] == ASSET_TYPE.ETF and row['currency_id'] == CURRENCY.BRL:
-            return f"ETF {row['name']} ({row['ticker']}) negociado na B3."
+            return f"ETF {row['name']} ({row['ticker']}) negociado na B3 via {broker}."
         if row['type_id'] == ASSET_TYPE.ETF and row['currency_id'] == CURRENCY.USD:
-            return f"ETF {row['name']} ({row['ticker']}) negociado no exterior."
+            return f"ETF {row['name']} ({row['ticker']}) negociado no exterior via {broker}."
         if row['type_id'] == ASSET_TYPE.STOCK and row['currency_id'] == CURRENCY.BRL:
-            return f"Ações da empresa {row['name']} ({row['ticker']}) negociadas na B3."
+            return f"Ações da empresa {row['name']} ({row['ticker']}) negociadas na B3 via {broker}."
         if row['type_id'] == ASSET_TYPE.STOCK and row['currency_id'] == CURRENCY.USD:
-            return f"Ações da empresa {row['name']} ({row['ticker']}) negociadas no exterior."
+            return f"Ações da empresa {row['name']} ({row['ticker']}) negociadas no exterior via {broker}."
         if row['type_id'] == ASSET_TYPE.BDR:
-            return f"BDR da empresa {row['name']} ({row['ticker']}), negociado na B3."
+            return f"BDR da empresa {row['name']} ({row['ticker']}), negociado na B3 via {broker}."
         if row['type_id'] == ASSET_TYPE.FII:
-            return f"Fundo Imobiliário {row['name']} ({row['ticker']}) negociado na B3."
+            return f"Fundo Imobiliário {row['name']} ({row['ticker']}) negociado na B3 via {broker}."
         if row['type_id'] == ASSET_TYPE.FI:
-            return f"Fundo de investimento {row['name']} ({row['ticker']}) com tributação periódica."
+            return f"Fundo de investimento {row['name']} ({row['ticker']}) com tributação periódica, via {broker}."
         else:
-            return f"Ativo {row['name']} ({row['ticker']})"
+            return f"Ativo {row['name']} ({row['ticker']}) via {broker}."
 
     async def get_fiis_operations_tax(self, portfolio_id: int, fiscal_year: int) -> dict:
         df = await self.repo.get_transactions_df(portfolio_id, asset_types_ids=[ASSET_TYPE.FII])

@@ -32,9 +32,7 @@ class Asset(BaseModel):
     ticker: str 
     name: str
     asset_type_id: int
-    currency_id: int
     
-    currency: Currency
     asset_type: AssetType
 
     model_config = ConfigDict(from_attributes=True)
@@ -168,10 +166,8 @@ class AssetDetailsOut(BaseModel):
     ticker: Optional[str]
     name: str
     asset_type_id: int
-    currency_id: int
     exchange_id: Optional[int] = None
 
-    currency: CurrencyOut
     asset_type: AssetTypeOut
 
     stock: Optional[StockOut] = None
@@ -226,7 +222,6 @@ class AssetCreate(BaseModel):
     ticker: Optional[str] = None
     name: str
     asset_type_id: int
-    currency_id: int
     exchange_id: Optional[int] = None
 
     # Stock

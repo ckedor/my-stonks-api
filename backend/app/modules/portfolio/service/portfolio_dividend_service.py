@@ -4,12 +4,12 @@ Portfolio dividend service - handles dividend management.
 """
 
 import pandas as pd
-from app.infra.db.models.asset import Asset
 from app.infra.db.models.constants.currency import CURRENCY
-from app.infra.db.models.portfolio import Dividend
+from app.infra.db.models.portfolio import Broker, Dividend, Transaction
 from app.modules.market_data.service.market_data_service import MarketDataService
 from app.modules.portfolio.api.dividend.schema import DividendFilters
 from app.modules.portfolio.repositories import PortfolioRepository
+from sqlalchemy import select
 
 
 class PortfolioDividendService:
@@ -26,14 +26,23 @@ class PortfolioDividendService:
             raise ValueError(f'USD/BRL rate not found for date {date}')
         return float(df.iloc[-1]['usdbrl'])
 
-    async def _fill_dual_currency(self, data: dict, asset_id: int) -> dict:
-        asset = await self.repo.get(Asset, id=asset_id)
-        if not asset:
-            raise ValueError(f'Asset {asset_id} not found')
+    async def _get_broker_currency(self, portfolio_id: int, asset_id: int) -> int:
+        stmt = (
+            select(Broker.currency_id)
+            .join(Transaction, Transaction.broker_id == Broker.id)
+            .where(Transaction.asset_id == asset_id)
+            .where(Transaction.portfolio_id == portfolio_id)
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        currency_id = result.scalar_one_or_none()
+        return currency_id or CURRENCY.BRL
 
+    async def _fill_dual_currency(self, data: dict, portfolio_id: int, asset_id: int) -> dict:
         rate = await self._get_usdbrl_rate(data['date'])
+        currency_id = await self._get_broker_currency(portfolio_id, asset_id)
 
-        if asset.currency_id == CURRENCY.USD:
+        if currency_id == CURRENCY.USD:
             data['amount_usd'] = data['amount']
             data['amount'] = data['amount'] * rate
         else:
@@ -54,7 +63,7 @@ class PortfolioDividendService:
 
     async def create_dividend(self, dividend_data):
         data = dividend_data.dict()
-        data = await self._fill_dual_currency(data, data['asset_id'])
+        data = await self._fill_dual_currency(data, data['portfolio_id'], data['asset_id'])
         dividend = await self.repo.create(Dividend, data)
         await self.session.commit()
         return dividend
@@ -69,7 +78,7 @@ class PortfolioDividendService:
         if 'amount' in update_data:
             date = update_data.get('date', existing_dividend.date)
             update_data['date'] = date
-            update_data = await self._fill_dual_currency(update_data, existing_dividend.asset_id)
+            update_data = await self._fill_dual_currency(update_data, existing_dividend.portfolio_id, existing_dividend.asset_id)
 
         updated_dividend = await self.repo.update(Dividend, update_data)
         

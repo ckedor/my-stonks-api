@@ -27,12 +27,6 @@ interface AssetType {
   asset_class: { id: number; name: string }
 }
 
-interface Currency {
-  id: number
-  code: string
-  name: string
-}
-
 interface Exchange {
   id: number
   code: string
@@ -91,7 +85,6 @@ export default function AdminAssetsPage() {
 
   // Reference data
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([])
-  const [currencies, setCurrencies] = useState<Currency[]>([])
   const [exchanges, setExchanges] = useState<Exchange[]>([])
   const [fiiSegments, setFiiSegments] = useState<Segment[]>([])
   const [etfSegments, setEtfSegments] = useState<Segment[]>([])
@@ -125,11 +118,10 @@ export default function AdminAssetsPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [assetsRes, typesRes, currenciesRes, exchangesRes, fiiSegRes, etfSegRes, fiTypesRes, tbTypesRes, indexesRes] =
+      const [assetsRes, typesRes, exchangesRes, fiiSegRes, etfSegRes, fiTypesRes, tbTypesRes, indexesRes] =
         await Promise.all([
           api.get('/assets/assets'),
           api.get('/assets/types'),
-          api.get('/market_data/currency'),
           api.get('/assets/exchanges'),
           api.get('/assets/fiis/segments'),
           api.get('/assets/etfs/segments'),
@@ -140,7 +132,6 @@ export default function AdminAssetsPage() {
       setAssets(assetsRes.data)
       setFilteredAssets(assetsRes.data)
       setAssetTypes(typesRes.data)
-      setCurrencies(currenciesRes.data)
       setExchanges(exchangesRes.data)
       setFiiSegments(fiiSegRes.data)
       setEtfSegments(etfSegRes.data)
@@ -171,7 +162,6 @@ export default function AdminAssetsPage() {
         ticker: detail.ticker,
         name: detail.name,
         asset_type_id: detail.asset_type_id,
-        currency_id: detail.currency?.id,
         exchange_id: detail.exchange_id,
       }
       if (detail.stock) {
@@ -350,20 +340,13 @@ export default function AdminAssetsPage() {
         options: assetTypes.map((t) => ({ value: t.id, label: `${t.short_name} — ${t.name}` })),
       },
       {
-        name: 'currency_id',
-        label: 'Moeda',
-        type: 'select',
-        required: true,
-        options: currencies.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
-      },
-      {
         name: 'exchange_id',
         label: 'Bolsa',
         type: 'select',
         options: [{ value: '', label: '— Nenhuma —' }, ...exchanges.map((e) => ({ value: e.id, label: `${e.code} — ${e.name}` }))],
       },
     ],
-    [assetTypes, currencies, exchanges],
+    [assetTypes, exchanges],
   )
 
   const fields: FieldConfig[] = useMemo(

@@ -10,7 +10,6 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from app.infra.db.models.asset import Asset
 from app.infra.db.models.market_data import Index
 from app.infra.db.models.portfolio import (
@@ -33,8 +32,8 @@ def _seed_broker(db, name='XP', cnpj='02.332.886/0001-04', currency_id=1):
     return broker
 
 
-def _seed_asset(db, ticker='PETR4', name='Petrobras', asset_type_id=4, currency_id=1, exchange_id=4):
-    asset = Asset(ticker=ticker, name=name, asset_type_id=asset_type_id, currency_id=currency_id, exchange_id=exchange_id)
+def _seed_asset(db, ticker='PETR4', name='Petrobras', asset_type_id=4, exchange_id=4):
+    asset = Asset(ticker=ticker, name=name, asset_type_id=asset_type_id, exchange_id=exchange_id)
     db.add(asset)
     db.commit()
     db.refresh(asset)

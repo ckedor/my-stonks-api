@@ -1,12 +1,11 @@
 
 import pandas as pd
-from sqlalchemy import or_
-
 from app.infra.db.models.asset import Asset
 from app.infra.db.models.asset_stock import Stock
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY
 from app.modules.portfolio.repositories.portfolio_repository import PortfolioRepository
+from sqlalchemy import or_
 
 
 class PortfolioBrlStocksRepository(PortfolioRepository):
@@ -51,7 +50,8 @@ class PortfolioBrlStocksRepository(PortfolioRepository):
                 'twelve_months_return',
                 'acc_return',
                 'daily_return',
-                'currency',
+                'cagr',
+                'total_invested',
                 'dividend',
                 'category',
                 'type',

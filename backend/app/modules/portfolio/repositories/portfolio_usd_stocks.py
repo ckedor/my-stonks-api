@@ -1,12 +1,12 @@
 
 import pandas as pd
-from sqlalchemy import or_
-
 from app.infra.db.models.asset import Asset
 from app.infra.db.models.asset_stock import Stock
 from app.infra.db.models.constants.asset_type import ASSET_TYPE
 from app.infra.db.models.constants.currency import CURRENCY
+from app.infra.db.models.portfolio import Broker, Transaction
 from app.modules.portfolio.repositories.portfolio_repository import PortfolioRepository
+from sqlalchemy import or_, select
 
 
 class PortfolioUsdStocksRepository(PortfolioRepository):
@@ -20,7 +20,15 @@ class PortfolioUsdStocksRepository(PortfolioRepository):
         currency_id=None):
         
         stmt = await self._build_portfolio_position_query(portfolio_id, date)
-        
+
+        usd_broker_assets = (
+            select(Transaction.asset_id)
+            .join(Broker, Transaction.broker_id == Broker.id)
+            .where(Broker.currency_id == CURRENCY.USD)
+            .where(Transaction.portfolio_id == portfolio_id)
+            .distinct()
+        )
+
         stmt = (
             stmt.join(Stock, Stock.asset_id == Asset.id, isouter=True)
             .add_columns(
@@ -34,7 +42,7 @@ class PortfolioUsdStocksRepository(PortfolioRepository):
                     Asset.asset_type_id == ASSET_TYPE.ETF,
                 )
             )
-            .where(Asset.currency_id == CURRENCY.USD)
+            .where(Asset.id.in_(usd_broker_assets))
         )
         
         result = await self.session.execute(stmt)
@@ -50,8 +58,8 @@ class PortfolioUsdStocksRepository(PortfolioRepository):
                 'twelve_months_return',
                 'acc_return',
                 'daily_return',
-                'currency',
-                'currency_id',
+                'cagr',
+                'total_invested',
                 'dividend',
                 'category',
                 'type',

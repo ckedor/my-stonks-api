@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pandas as pd
-from app.infra.db.models.asset import Asset, AssetClass, AssetType, Currency
+from app.infra.db.models.asset import Asset, AssetClass, AssetType
 from app.infra.db.models.asset_etf import ETF
 from app.infra.db.models.asset_fii import FII, FIISegment
 from app.infra.db.models.asset_fixed_income import FixedIncome
@@ -76,7 +76,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 txn_subq.c.asset_id,
                 Asset.ticker,
                 Asset.name,
-                Asset.currency_id,
+                Broker.currency_id,
                 txn_subq.c.quantity,
                 Position.price,
                 Position.twelve_months_return,
@@ -89,6 +89,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 AssetClass.name.label("class"),
                 Broker.id.label("broker_id"),
                 Broker.name.label("broker_name"),
+                Broker.cnpj.label("broker_cnpj"),
             )
             .join(Asset, Asset.id == txn_subq.c.asset_id)
             .join(Broker, Broker.id == txn_subq.c.broker_id)
@@ -139,6 +140,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 "class",
                 "broker_id",
                 "broker_name",
+                "broker_cnpj",
             ],
         )
         df["date"] = pd.to_datetime(df["date"])
@@ -149,7 +151,6 @@ class PortfolioRepository(SQLAlchemyRepository):
             select(Asset)
             .options(
                 joinedload(Asset.asset_type).joinedload(AssetType.asset_class),
-                joinedload(Asset.currency),
                 joinedload(Asset.stock),
                 joinedload(Asset.fii).joinedload(FII.segment).joinedload(FIISegment.type),
                 joinedload(Asset.etf).joinedload(ETF.segment),
@@ -297,11 +298,9 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Position.quantity,
                 Position.price,
                 Position.twelve_months_return,
-                Currency.name.label('currency'),
                 func.coalesce(dividend_subquery.c.total_dividend, 0).label('dividend'),
             )
             .join(Asset, Position.asset_id == Asset.id)
-            .join(Currency, Asset.currency_id == Currency.id)
             .outerjoin(
                 dividend_subquery,
                 and_(
@@ -322,7 +321,7 @@ class PortfolioRepository(SQLAlchemyRepository):
         result = await self.session.execute(stmt)
         df = pd.DataFrame(
             result.all(),
-            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'twelve_months_return', 'currency', 'dividend'],
+            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'twelve_months_return', 'dividend'],
         )
         df['date'] = pd.to_datetime(df['date'])
         return df
@@ -424,7 +423,6 @@ class PortfolioRepository(SQLAlchemyRepository):
                 'asset_id',
                 'ticker',
                 'name',
-                'currency_id',
                 'quantity',
                 'price',
                 'twelve_months_return',
@@ -467,7 +465,6 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Position.asset_id,
                 Asset.ticker,
                 Asset.name,
-                Asset.currency_id,
                 Position.quantity,
                 price_col,
                 Position.twelve_months_return,

@@ -8,7 +8,6 @@ from datetime import date
 from http import HTTPStatus
 
 import pytest
-
 from app.infra.db.models.asset import Asset, AssetType, Event
 from app.infra.db.models.asset_fixed_income import FixedIncome
 
@@ -16,13 +15,12 @@ from app.infra.db.models.asset_fixed_income import FixedIncome
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _seed_asset(db, ticker='PETR4', name='Petrobras', asset_type_id=4, currency_id=1, exchange_id=4):
+def _seed_asset(db, ticker='PETR4', name='Petrobras', asset_type_id=4, exchange_id=4):
     """Insert an asset directly into the DB for tests that need pre-existing data."""
     asset = Asset(
         ticker=ticker,
         name=name,
         asset_type_id=asset_type_id,
-        currency_id=currency_id,
         exchange_id=exchange_id,
     )
     db.add(asset)
