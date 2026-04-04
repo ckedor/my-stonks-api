@@ -4,6 +4,7 @@
     {
       "name": "Python: FastAPI (uvicorn)",
       "type": "python",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
       "request": "launch",
       "module": "uvicorn",
       "args": [
@@ -13,29 +14,40 @@
         "--reload"
       ],
       "jinja": true,
+      "cwd": "${workspaceFolder}/backend",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}"
+        "PYTHONPATH": "${workspaceFolder}/backend"
       },
       "preLaunchTask": "Start Dependencies"
     },
     {
-      "name": "Run Celery Worker (terminal separado)",
+      "name": "Run Celery Worker",
       "type": "python",
+      "python": "${workspaceFolder}/backend/.venv/bin/python",
       "request": "launch",
       "module": "celery",
       "console": "integratedTerminal",
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/backend",
       "args": [
         "-A", "app.main_celery.celery_app",
-        "worker", 
-        "-l", "info", "--pool=solo", 
+        "worker",
+        "-l", "info", "--pool=solo",
         "--beat"
       ],
       "env": {
-        "PYTHONPATH": "${workspaceFolder}"
+        "PYTHONPATH": "${workspaceFolder}/backend"
       },
       "justMyCode": false,
       "preLaunchTask": "Start Dependencies"
+    },
+    {
+      "name": "Frontend: Vite Dev",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/frontend",
+      "console": "integratedTerminal"
     }
   ],
   "compounds": [
@@ -43,7 +55,16 @@
       "name": "API + Worker",
       "configurations": [
         "Python: FastAPI (uvicorn)",
-        "Run Celery Worker (terminal separado)"
+        "Run Celery Worker"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Full Stack (API + Worker + Frontend)",
+      "configurations": [
+        "Python: FastAPI (uvicorn)",
+        "Run Celery Worker",
+        "Frontend: Vite Dev"
       ],
       "stopAll": true
     }

@@ -5,6 +5,9 @@
       "label": "Start PostgreSQL (Docker)",
       "type": "shell",
       "command": "docker-compose up -d db",
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      },
       "problemMatcher": [],
       "group": "build"
     },
@@ -13,7 +16,7 @@
       "type": "shell",
       "command": "docker-compose up -d redis",
       "options": {
-        "cwd": "${workspaceFolder}"
+        "cwd": "${workspaceFolder}/backend"
       },
       "problemMatcher": []
     },
@@ -21,11 +24,19 @@
       "label": "Start Dependencies",
       "dependsOn": [
         "Start PostgreSQL (Docker)",
-        "Start Redis (Docker)",
+        "Start Redis (Docker)"
       ],
       "dependsOrder": "parallel"
     },
+    {
+      "label": "Frontend Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    }
   ]
 }
-
-
