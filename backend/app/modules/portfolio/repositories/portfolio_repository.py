@@ -283,6 +283,7 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Dividend.portfolio_id,
                 Dividend.date,
                 func.sum(Dividend.amount).label('total_dividend'),
+                func.sum(Dividend.amount_usd).label('total_dividend_usd'),
             )
             .where(Dividend.portfolio_id == portfolio_id)
             .where(Dividend.asset_id.in_(asset_ids))
@@ -297,8 +298,10 @@ class PortfolioRepository(SQLAlchemyRepository):
                 Asset.ticker,
                 Position.quantity,
                 Position.price,
+                Position.price_usd,
                 Position.twelve_months_return,
                 func.coalesce(dividend_subquery.c.total_dividend, 0).label('dividend'),
+                func.coalesce(dividend_subquery.c.total_dividend_usd, 0).label('dividend_usd'),
             )
             .join(Asset, Position.asset_id == Asset.id)
             .outerjoin(
@@ -321,8 +324,10 @@ class PortfolioRepository(SQLAlchemyRepository):
         result = await self.session.execute(stmt)
         df = pd.DataFrame(
             result.all(),
-            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'twelve_months_return', 'dividend'],
+            columns=['date', 'asset_id', 'ticker', 'quantity', 'price', 'price_usd', 'twelve_months_return', 'dividend', 'dividend_usd'],
         )
+        df['dividend'] = pd.to_numeric(df['dividend'], errors='coerce').fillna(0)
+        df['dividend_usd'] = pd.to_numeric(df['dividend_usd'], errors='coerce').fillna(0)
         df['date'] = pd.to_datetime(df['date'])
         return df
 

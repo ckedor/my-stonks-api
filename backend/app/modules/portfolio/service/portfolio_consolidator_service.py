@@ -136,7 +136,28 @@ class PortfolioConsolidatorService:
                     )
                     return
                 position_df = position_df.loc[:last_nonzero.index[-1]].copy()
-            
+
+            # Merge dividends so returns include dividend yield
+            dividends_df = await self.repo.get(
+                Dividend,
+                by={'portfolio_id': portfolio_id, 'asset_id': asset_id},
+                as_df=True,
+            )
+            if not dividends_df.empty:
+                dividends_df['date'] = pd.to_datetime(dividends_df['date'])
+                div_agg = (
+                    dividends_df.groupby('date')
+                    .agg(dividend=('amount', 'sum'), dividend_usd=('amount_usd', 'sum'))
+                    .reset_index()
+                )
+                position_df = position_df.merge(div_agg, on='date', how='left')
+            if 'dividend' not in position_df.columns:
+                position_df['dividend'] = 0.0
+            if 'dividend_usd' not in position_df.columns:
+                position_df['dividend_usd'] = 0.0
+            position_df['dividend'] = position_df['dividend'].fillna(0.0)
+            position_df['dividend_usd'] = position_df['dividend_usd'].fillna(0.0)
+
             self._calculate_returns(position_df)
             
             await self._persist_positions_db(position_df, transactions_df['date'].min(), asset, portfolio_id)
@@ -345,6 +366,12 @@ class PortfolioConsolidatorService:
 
         # BRL
         position_df['daily_return'] = position_df['price'].pct_change(fill_method=None).fillna(0)
+        # Add dividend yield: dividend / (quantity * previous price)
+        if 'dividend' in position_df.columns:
+            base_value = position_df['quantity'] * position_df['price'].shift(1)
+            position_df['daily_return'] += (
+                position_df['dividend'] / base_value.replace(0, pd.NA)
+            ).fillna(0)
         position_df.loc[no_exposure, 'daily_return'] = 0
         position_df['acc_return'] = (1 + position_df['daily_return']).cumprod() - 1
 
@@ -368,6 +395,11 @@ class PortfolioConsolidatorService:
         position_df['daily_return_usd'] = (
             position_df['price_usd'].pct_change(fill_method=None).fillna(0)
         )
+        if 'dividend_usd' in position_df.columns:
+            base_value_usd = position_df['quantity'] * position_df['price_usd'].shift(1)
+            position_df['daily_return_usd'] += (
+                position_df['dividend_usd'] / base_value_usd.replace(0, pd.NA)
+            ).fillna(0)
         position_df.loc[no_exposure, 'daily_return_usd'] = 0
         position_df['acc_return_usd'] = (1 + position_df['daily_return_usd']).cumprod() - 1
 
